@@ -196,13 +196,6 @@ yarn preview
 
 访问地址：`https://qijian-deep.github.io/smart-financial-steward/`
 
-### Vercel
-
-1. 访问 [vercel.com](https://vercel.com)
-2. 导入 GitHub 仓库
-3. 选择 Vite 框架
-4. 点击 Deploy
-
 ---
 
 ## 合规声明
