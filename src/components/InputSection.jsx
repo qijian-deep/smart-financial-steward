@@ -75,17 +75,43 @@ export function InputSection({
         <div className="form-group">
           <label>模拟开始日期</label>
           <input
-            type="month"
-            value={simulationParams.startDate}
-            onChange={(e) => setSimulationParams({ ...simulationParams, startDate: e.target.value })}
+            type="date"
+            value={simulationParams.startDate + '-01'}
+            onChange={(e) => {
+              const dateValue = e.target.value
+              const yearMonth = dateValue.substring(0, 7)
+              setSimulationParams({ ...simulationParams, startDate: yearMonth })
+            }}
+            style={{
+              fontSize: '16px',
+              minHeight: '44px',
+              padding: '0.5rem',
+              borderRadius: '8px',
+              border: '1px solid #ccc',
+              width: '100%',
+              WebkitAppearance: 'none'
+            }}
           />
         </div>
         <div className="form-group">
           <label>模拟结束日期</label>
           <input
-            type="month"
-            value={simulationParams.endDate}
-            onChange={(e) => setSimulationParams({ ...simulationParams, endDate: e.target.value })}
+            type="date"
+            value={simulationParams.endDate + '-01'}
+            onChange={(e) => {
+              const dateValue = e.target.value
+              const yearMonth = dateValue.substring(0, 7)
+              setSimulationParams({ ...simulationParams, endDate: yearMonth })
+            }}
+            style={{
+              fontSize: '16px',
+              minHeight: '44px',
+              padding: '0.5rem',
+              borderRadius: '8px',
+              border: '1px solid #ccc',
+              width: '100%',
+              WebkitAppearance: 'none'
+            }}
           />
         </div>
         <div className="form-group">

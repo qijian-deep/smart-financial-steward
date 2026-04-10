@@ -1,16 +1,220 @@
-# React + Vite
+# 智能财务规划助手
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+帮助用户看清财务决策后果的工具，而非投资建议平台。核心价值：让用户输入假设，系统给出清晰的计算结果和风险提示。
 
-Currently, two official plugins are available:
+**目标用户**：25-40岁上班族，有稳定收入，想理财但怕亏。
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+---
 
-## React Compiler
+## 功能特性
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+### 多资产配置组合模拟
 
-## Expanding the ESLint configuration
+用户配置多资产组合（多个基金、存款、活期），选择一段**真实的历史时间区间**进行回测，系统基于历史真实数据计算资产变化曲线。
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+**核心功能**：
+- 收入支持多段时间段配置
+- 支持未来推移预测
+- 基于真实历史基金数据回测
+- 可视化资产变化曲线
+- 智能风险提示
+
+---
+
+## 技术栈
+
+- **前端框架**：React 18 + Vite
+- **UI组件**：原生CSS + 自定义组件
+- **图表库**：Recharts
+- **数据加载**：动态脚本注入（东方财富基金数据）
+- **部署**：GitHub Pages / Vercel
+
+---
+
+## 功能模块
+
+### 1. 收入配置（支持多段）
+
+| 字段 | 说明 |
+|------|------|
+| 月收入 | 该时间段内的月收入 |
+| 生效开始日期 | 年月 |
+| 生效结束日期 | 年月 |
+
+**约束**：收入段之间不能有空隙和重叠，必须完全覆盖模拟时间区间。
+
+### 2. 支出配置
+
+| 字段 | 说明 |
+|------|------|
+| 月支出 | 日常固定支出 |
+| 年额外支出 | 可选，每项包含金额 |
+
+### 3. 基金配置（可添加多个）
+
+| 字段 | 说明 |
+|------|------|
+| 基金代码 | 支持输入基金代码加载真实数据 |
+| 每月定投金额 | 固定扣款金额 |
+| 定投开始/结束日期 | 历史真实日期 |
+
+**数据来源**：东方财富基金数据 API
+
+### 4. 存款配置（可添加多个）
+
+| 字段 | 说明 |
+|------|------|
+| 存款金额 | 一次性存入 |
+| 存入日期 | 年月 |
+| 年利率 | 固定利率 |
+| 期限 | 月数 |
+
+### 5. 活期配置
+
+| 字段 | 说明 |
+|------|------|
+| 初始余额 | 模拟开始时余额 |
+| 年利率 | 如0.3% |
+
+### 6. 模拟参数
+
+| 字段 | 说明 |
+|------|------|
+| 模拟开始/结束日期 | 历史真实日期 |
+| 推移年份 | 将历史曲线平移到未来的年数 |
+| 基金代码 | 加载真实基金数据 |
+
+---
+
+## 视图切换
+
+| 视图 | 横轴范围 | 数据来源 |
+|------|----------|----------|
+| 历史视图 | 模拟开始~结束 | 真实历史净值计算结果 |
+| 未来视图 | 各日期+推移年份 | 历史曲线整体右移 |
+
+**未来视图规则**：金额不变，仅时间轴平移。
+
+---
+
+## 计算逻辑
+
+### 资金流转规则
+
+```
+当月可支配余额 = 当月收入 - 月支出 - 年额外支出
+→ 优先基金定投扣款
+→ 剩余存入活期
+→ 不足从活期补足
+```
+
+### 逐月计算
+
+1. 根据月份查找对应收入段的月收入
+2. 计算当月可支配余额
+3. 更新活期余额（可支配 - 定投总额）
+4. 计算各基金资产 = 累计份额 × 当月净值
+5. 计算各存款资产
+6. 计算活期资产 = 余额 × (1 + 月利率)
+7. 组合总资产 = Σ基金 + Σ存款 + 活期
+8. 累计投入 = Σ基金定投 + Σ存款本金 + 活期初始余额
+
+---
+
+## 输出项
+
+### 图表输出
+
+- 组合总资产曲线（实线）
+- 累计投入曲线（虚线）
+- 最大回撤标注（红点标记位置）
+
+### 统计卡片（历史视图）
+
+| 卡片 | 内容 |
+|------|------|
+| 期末资产 | XX元 |
+| 总收益 | XX元 / XX% |
+| 最大回撤 | -XX%（发生在X年X月） |
+| 最大亏损金额 | XX元 |
+
+### 风险提示
+
+| 条件 | 提示语 |
+|------|--------|
+| 最大亏损 > 3个月收入 | 历史上曾亏损X元，相当于X个月收入，请确认能承受 |
+| 定投结束时仍亏损 | 建议延长定投时间 |
+| 活期某月为负 | 定投总额超可支配收入，建议降低金额 |
+
+---
+
+## 项目结构
+
+```
+src/
+├── hooks/
+│   ├── useFundData.js      # 基金数据加载逻辑
+│   └── useSimulation.js    # 模拟计算逻辑
+├── utils/
+│   └── fundUtils.js        # 基金工具函数
+├── components/
+│   ├── InputSection.jsx    # 输入区域组件
+│   └── OutputSection.jsx   # 输出区域组件
+├── App.jsx                 # 主应用组件
+├── App.css                 # 应用样式
+└── main.jsx                # 入口文件
+```
+
+---
+
+## 本地开发
+
+```bash
+# 安装依赖
+yarn install
+
+# 启动开发服务器
+yarn dev
+
+# 构建
+yarn build
+
+# 预览
+yarn preview
+```
+
+---
+
+## 部署
+
+### GitHub Pages（推荐）
+
+1. 推送代码到 GitHub
+2. 进入仓库 Settings → Pages
+3. Source 选择 GitHub Actions
+4. 自动部署完成
+
+访问地址：`https://qijian-deep.github.io/smart-financial-steward/`
+
+### Vercel
+
+1. 访问 [vercel.com](https://vercel.com)
+2. 导入 GitHub 仓库
+3. 选择 Vite 框架
+4. 点击 Deploy
+
+---
+
+## 合规声明
+
+> **以上计算结果仅供参考，不构成任何投资建议。市场有风险，决策需谨慎。**
+
+---
+
+## 许可证
+
+MIT License
+
+---
+
+**文档版本**：V1.0 | **最后更新**：2026-04-10

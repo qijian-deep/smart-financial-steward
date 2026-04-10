@@ -51,6 +51,37 @@ function App() {
     }
   }, [loadedFundData, funds.length, simulationParams.startDate, simulationParams.endDate, setFunds])
 
+  // 当模拟参数的开始/结束日期变化时，同步到所有配置
+  const handleSimulationParamsChange = (newParams) => {
+    setSimulationParams(newParams)
+    
+    // 同步到收入配置
+    setIncomeSegments(segments => 
+      segments.map(s => ({
+        ...s,
+        startDate: newParams.startDate,
+        endDate: newParams.endDate
+      }))
+    )
+    
+    // 同步到基金配置
+    setFunds(fundList => 
+      fundList.map(f => ({
+        ...f,
+        startDate: newParams.startDate,
+        endDate: newParams.endDate
+      }))
+    )
+    
+    // 同步到存款配置
+    setDeposits(depositList => 
+      depositList.map(d => ({
+        ...d,
+        date: newParams.startDate
+      }))
+    )
+  }
+
   return (
     <div className="app">
       <h1>智能财务规划助手</h1>
@@ -66,7 +97,7 @@ function App() {
           loadFundData={loadFundData}
           // Simulation params
           simulationParams={simulationParams}
-          setSimulationParams={setSimulationParams}
+          setSimulationParams={handleSimulationParamsChange}
           // Income
           incomeSegments={incomeSegments}
           setIncomeSegments={setIncomeSegments}
