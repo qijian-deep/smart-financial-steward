@@ -1,10 +1,18 @@
 import { useState, useCallback } from 'react'
+import type { LoadedFundData, FundNavData } from '../types'
+
+declare global {
+  interface Window {
+    Data_netWorthTrend?: Array<{ x: number; y: number }>
+    fS_name?: string
+  }
+}
 
 export function useFundData() {
-  const [fundCodeInput, setFundCodeInput] = useState('519702')
-  const [loadedFundData, setLoadedFundData] = useState(null)
-  const [fundLoading, setFundLoading] = useState(false)
-  const [fundError, setFundError] = useState(null)
+  const [fundCodeInput, setFundCodeInput] = useState<string>('519702')
+  const [loadedFundData, setLoadedFundData] = useState<LoadedFundData | null>(null)
+  const [fundLoading, setFundLoading] = useState<boolean>(false)
+  const [fundError, setFundError] = useState<string | null>(null)
 
   const loadFundData = useCallback(async () => {
     if (!fundCodeInput) return
@@ -28,13 +36,19 @@ export function useFundData() {
       script.onload = () => {
         clearTimeout(timeout)
         if (typeof window.Data_netWorthTrend !== 'undefined') {
-          const monthlyData = {}
+          const monthlyData: Record<string, FundNavData> = {}
           const trendData = window.Data_netWorthTrend
 
           // 先将所有数据按年月分组
-          const groupedByMonth = {}
+          const groupedByMonth: Record<string, Array<{
+            year: number
+            month: number
+            day: number
+            nav: number
+            timestamp: number
+          }>> = {}
           
-          trendData.forEach(item => {
+          trendData?.forEach(item => {
             const date = new Date(item.x)
             const year = date.getFullYear()
             const month = date.getMonth() + 1
@@ -84,7 +98,7 @@ export function useFundData() {
 
           const fundName = typeof window.fS_name !== 'undefined' ? window.fS_name : fundCodeInput
 
-          const loadedData = {
+          const loadedData: LoadedFundData = {
             code: fundCodeInput,
             name: fundName,
             data: monthlyData
@@ -112,7 +126,7 @@ export function useFundData() {
 
       document.head.appendChild(script)
     } catch (error) {
-      setFundError('加载出错: ' + error.message)
+      setFundError('加载出错: ' + (error instanceof Error ? error.message : String(error)))
       setFundLoading(false)
     }
   }, [fundCodeInput])

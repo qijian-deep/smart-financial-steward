@@ -3,23 +3,31 @@ import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
   ReferenceDot
 } from 'recharts'
+import type { SimulationResult, SimulationParams, IncomeSegment, MonthlyData } from '../types'
+
+interface OutputSectionProps {
+  simulationResult: SimulationResult | null
+  shiftToFuture: (historyResult: SimulationResult | null, shiftYears: number) => SimulationResult | null
+  simulationParams: SimulationParams
+  incomeSegments: IncomeSegment[]
+}
 
 export function OutputSection({
   simulationResult,
   shiftToFuture,
   simulationParams,
   incomeSegments
-}) {
-  const [activeView, setActiveView] = useState('history')
+}: OutputSectionProps) {
+  const [activeView, setActiveView] = useState<'history' | 'future'>('history')
 
-  const chartData = useMemo(() => {
+  const chartData = useMemo<MonthlyData[] | null>(() => {
     if (!simulationResult) return null
     return activeView === 'history'
       ? simulationResult.monthlyData
-      : shiftToFuture(simulationResult, simulationParams.shiftYears)?.monthlyData
+      : shiftToFuture(simulationResult, simulationParams.shiftYears)?.monthlyData || null
   }, [activeView, simulationResult, shiftToFuture, simulationParams.shiftYears])
 
-  const maxDrawdownPoint = useMemo(() => {
+  const maxDrawdownPoint = useMemo<MonthlyData | null>(() => {
     if (!chartData || !simulationResult?.maxDrawdown?.month) return null
     const targetMonth = activeView === 'history'
       ? simulationResult.maxDrawdown.month
@@ -28,11 +36,11 @@ export function OutputSection({
           const newYear = parseInt(year) + simulationParams.shiftYears
           return `${newYear}-${month}`
         })()
-    return chartData.find(item => item.month === targetMonth)
+    return chartData.find(item => item.month === targetMonth) || null
   }, [chartData, simulationResult, activeView, simulationParams.shiftYears])
 
-  const hasNegativeBalance = useMemo(() => {
-    return simulationResult?.monthlyData?.some(item => item.currentBalance < 0)
+  const hasNegativeBalance = useMemo<boolean>(() => {
+    return simulationResult?.monthlyData?.some(item => item.currentBalance < 0) || false
   }, [simulationResult])
 
   return (
@@ -60,10 +68,10 @@ export function OutputSection({
             <LineChart data={chartData}>
               <CartesianGrid strokeDasharray="3 3" />
               <XAxis dataKey="month" />
-              <YAxis tickFormatter={(value) => `${(value / 10000).toFixed(1)}万`} />
+              <YAxis tickFormatter={(value: number) => `${(value / 10000).toFixed(1)}万`} />
               <Tooltip
-                formatter={(value) => [`${(value / 10000).toFixed(2)}万元`, '']}
-                labelFormatter={(label) => `日期: ${label}`}
+                formatter={(value) => [`${(Number(value) / 10000).toFixed(2)}万元`, '']}
+                labelFormatter={(label) => `日期: ${String(label)}`}
               />
               <Legend />
               <Line
@@ -151,9 +159,9 @@ export function OutputSection({
       {activeView === 'history' && simulationResult && (
         <div className="risk-tips">
           <h3>风险提示</h3>
-          {simulationResult.maxDrawdown.amount > incomeSegments[0]?.monthlyIncome * 3 && (
+          {simulationResult.maxDrawdown.amount > (incomeSegments[0]?.monthlyIncome || 0) * 3 && (
             <p className="risk-tip">
-              历史上曾亏损{(simulationResult.maxDrawdown.amount / 10000).toFixed(2)}万，相当于{Math.round(simulationResult.maxDrawdown.amount / incomeSegments[0].monthlyIncome)}个月收入，请确认能承受
+              历史上曾亏损{(simulationResult.maxDrawdown.amount / 10000).toFixed(2)}万，相当于{Math.round(simulationResult.maxDrawdown.amount / (incomeSegments[0]?.monthlyIncome || 1))}个月收入，请确认能承受
             </p>
           )}
           {simulationResult.totalReturn.amount < 0 && (

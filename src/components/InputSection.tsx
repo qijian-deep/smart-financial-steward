@@ -1,5 +1,51 @@
-import { builtinFunds } from '../utils/fundUtils'
 import { useMemo } from 'react'
+import type {
+  LoadedFundData,
+  SimulationParams,
+  IncomeSegment,
+  ExtraExpense,
+  Fund,
+  Deposit,
+  CurrentAccount,
+  AvailableFund
+} from '../types'
+
+interface InputSectionProps {
+  // Fund data
+  fundCodeInput: string
+  setFundCodeInput: (value: string) => void
+  fundLoading: boolean
+  fundError: string | null
+  loadedFundData: LoadedFundData | null
+  loadFundData: () => void
+  // Simulation params
+  simulationParams: SimulationParams
+  setSimulationParams: (params: SimulationParams) => void
+  // Income
+  incomeSegments: IncomeSegment[]
+  setIncomeSegments: (segments: IncomeSegment[]) => void
+  addIncomeSegment: () => void
+  // Expense
+  monthlyExpense: number
+  setMonthlyExpense: (value: number) => void
+  // Extra expenses
+  extraExpenses: ExtraExpense[]
+  setExtraExpenses: (expenses: ExtraExpense[]) => void
+  addExtraExpense: () => void
+  // Funds
+  funds: Fund[]
+  setFunds: (funds: Fund[]) => void
+  addFund: () => void
+  // Deposits
+  deposits: Deposit[]
+  setDeposits: (deposits: Deposit[]) => void
+  addDeposit: () => void
+  // Current account
+  currentAccount: CurrentAccount
+  setCurrentAccount: (account: CurrentAccount) => void
+  // Calculation
+  onCalculate: () => void
+}
 
 export function InputSection({
   // Fund data
@@ -17,17 +63,24 @@ export function InputSection({
   // Deposits
   deposits, setDeposits, addDeposit,
   // Current account
-  currentAccount, setCurrentAccount
-}) {
+  currentAccount, setCurrentAccount,
+  // Calculation
+  onCalculate
+}: InputSectionProps) {
   // 合并内置基金和已加载的基金
-  const availableFunds = useMemo(() => {
+  const availableFunds = useMemo<AvailableFund[]>(() => {
+    // 内置基金列表
+    const builtinFunds: AvailableFund[] = [
+      { code: "519702", name: "519702", type: "混合型" }
+    ]
+
     if (loadedFundData) {
       // 如果加载了真实数据，使用真实基金名称
       const exists = builtinFunds.find(f => f.code === loadedFundData.code)
       if (exists) {
         // 更新内置基金的名称
-        return builtinFunds.map(f => 
-          f.code === loadedFundData.code 
+        return builtinFunds.map(f =>
+          f.code === loadedFundData.code
             ? { ...f, name: loadedFundData.name }
             : f
         )
@@ -352,6 +405,40 @@ export function InputSection({
             onChange={(e) => setCurrentAccount({ ...currentAccount, annualRate: parseFloat(e.target.value) || 0 })}
           />
         </div>
+      </div>
+
+      {/* 计算按钮 */}
+      <div className="section" style={{ textAlign: 'center', padding: '2rem', background: '#f0f7ff', borderRadius: '12px', marginTop: '1rem' }}>
+        <button
+          onClick={onCalculate}
+          style={{
+            padding: '1rem 3rem',
+            fontSize: '1.2rem',
+            fontWeight: 'bold',
+            background: '#646cff',
+            color: 'white',
+            border: 'none',
+            borderRadius: '8px',
+            cursor: 'pointer',
+            boxShadow: '0 4px 12px rgba(100, 108, 255, 0.3)',
+            transition: 'all 0.3s ease'
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.background = '#535bf2'
+            e.currentTarget.style.transform = 'translateY(-2px)'
+            e.currentTarget.style.boxShadow = '0 6px 16px rgba(100, 108, 255, 0.4)'
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.background = '#646cff'
+            e.currentTarget.style.transform = 'translateY(0)'
+            e.currentTarget.style.boxShadow = '0 4px 12px rgba(100, 108, 255, 0.3)'
+          }}
+        >
+          开始计算
+        </button>
+        <p style={{ marginTop: '0.75rem', color: '#666', fontSize: '0.9rem' }}>
+          配置完成后点击计算按钮查看结果
+        </p>
       </div>
     </div>
   )

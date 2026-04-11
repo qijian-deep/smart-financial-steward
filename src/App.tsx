@@ -4,6 +4,7 @@ import { useFundData } from './hooks/useFundData'
 import { useSimulation } from './hooks/useSimulation'
 import { InputSection } from './components/InputSection'
 import { OutputSection } from './components/OutputSection'
+import type { SimulationParams, IncomeSegment, Fund, Deposit } from './types'
 
 function App() {
   // 基金数据加载
@@ -23,7 +24,8 @@ function App() {
     deposits, setDeposits, addDeposit,
     currentAccount, setCurrentAccount,
     simulationParams, setSimulationParams,
-    simulationResult, shiftToFuture
+    simulationResult, shiftToFuture,
+    triggerCalculation
   } = useSimulation(loadedFundData)
 
   // 页面初始化后自动加载基金数据
@@ -52,30 +54,30 @@ function App() {
   }, [loadedFundData, funds.length, simulationParams.startDate, simulationParams.endDate, setFunds])
 
   // 当模拟参数的开始/结束日期变化时，同步到所有配置
-  const handleSimulationParamsChange = (newParams) => {
+  const handleSimulationParamsChange = (newParams: SimulationParams) => {
     setSimulationParams(newParams)
-    
+
     // 同步到收入配置
-    setIncomeSegments(segments => 
-      segments.map(s => ({
+    setIncomeSegments((segments: IncomeSegment[]) =>
+      segments.map((s: IncomeSegment) => ({
         ...s,
         startDate: newParams.startDate,
         endDate: newParams.endDate
       }))
     )
-    
+
     // 同步到基金配置
-    setFunds(fundList => 
-      fundList.map(f => ({
+    setFunds((fundList: Fund[]) =>
+      fundList.map((f: Fund) => ({
         ...f,
         startDate: newParams.startDate,
         endDate: newParams.endDate
       }))
     )
-    
+
     // 同步到存款配置
-    setDeposits(depositList => 
-      depositList.map(d => ({
+    setDeposits((depositList: Deposit[]) =>
+      depositList.map((d: Deposit) => ({
         ...d,
         date: newParams.startDate
       }))
@@ -120,6 +122,8 @@ function App() {
           // Current account
           currentAccount={currentAccount}
           setCurrentAccount={setCurrentAccount}
+          // Calculation
+          onCalculate={triggerCalculation}
         />
 
         <OutputSection

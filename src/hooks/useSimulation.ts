@@ -1,45 +1,58 @@
 import { useState, useCallback, useMemo } from 'react'
-import { generateFundNavData } from '../utils/fundUtils'
+import type {
+  IncomeSegment,
+  ExtraExpense,
+  Fund,
+  Deposit,
+  CurrentAccount,
+  SimulationParams,
+  SimulationResult,
+  MonthlyData,
+  MaxDrawdown,
+  LoadedFundData,
+  MonthNavs
+} from '../types'
 
-const defaultFundNavData = generateFundNavData()
-
-export function useSimulation(loadedFundData = null) {
-  const [incomeSegments, setIncomeSegments] = useState([
+export function useSimulation(loadedFundData: LoadedFundData | null = null) {
+  const [incomeSegments, setIncomeSegments] = useState<IncomeSegment[]>([
     { id: 1, monthlyIncome: 10000, startDate: '2015-01', endDate: '2015-03' }
   ])
-  const [monthlyExpense, setMonthlyExpense] = useState(5000)
-  const [extraExpenses, setExtraExpenses] = useState([])
-  const [funds, setFunds] = useState([])
-  const [deposits, setDeposits] = useState([])
-  const [currentAccount, setCurrentAccount] = useState({ initialBalance: 10000, annualRate: 0 })
-  const [simulationParams, setSimulationParams] = useState({
+  const [monthlyExpense, setMonthlyExpense] = useState<number>(5000)
+  const [extraExpenses, setExtraExpenses] = useState<ExtraExpense[]>([])
+  const [funds, setFunds] = useState<Fund[]>([])
+  const [deposits, setDeposits] = useState<Deposit[]>([])
+  const [currentAccount, setCurrentAccount] = useState<CurrentAccount>({ initialBalance: 10000, annualRate: 0 })
+  const [simulationParams, setSimulationParams] = useState<SimulationParams>({
     startDate: '2015-01',
     endDate: '2015-03',
     shiftYears: 0
   })
 
+  // 计算触发状态 - 用于控制何时重新计算
+  const [calculationTrigger, setCalculationTrigger] = useState<number>(0)
+
   // 合并默认基金数据和加载的基金数据
   const fundNavData = useMemo(() => {
-    const data = { ...defaultFundNavData }
+    const data: Record<string, Record<string, { startNav: number; endNav: number }>> = {}
     if (loadedFundData && loadedFundData.data) {
       data[loadedFundData.code] = loadedFundData.data
     }
     return data
   }, [loadedFundData])
 
-  const getMonthlyIncome = useCallback((date, segments) => {
+  const getMonthlyIncome = useCallback((date: string, segments: IncomeSegment[]) => {
     const segment = segments.find(s => date >= s.startDate && date <= s.endDate)
     return segment ? segment.monthlyIncome : 0
   }, [])
 
   // 获取月初和月末净值
-  const getMonthNavs = useCallback((month, fundCode) => {
+  const getMonthNavs = useCallback((month: string, fundCode: string): MonthNavs | null => {
     const fundData = fundNavData[fundCode]
     if (!fundData) return null
 
     // 获取当月数据
     let startNavData = fundData[month]
-    
+
     // 如果当月没有数据，往后查找
     if (!startNavData) {
       const [year, monthNum] = month.split('-').map(Number)
@@ -51,7 +64,7 @@ export function useSimulation(loadedFundData = null) {
         if (fundData[searchKey]) { startNavData = fundData[searchKey]; break }
       }
     }
-    
+
     if (!startNavData) return null
 
     // 获取下月数据作为月末净值
@@ -59,9 +72,9 @@ export function useSimulation(loadedFundData = null) {
     let nextYear = year, nextMonth = monthNum + 1
     if (nextMonth > 12) { nextMonth = 1; nextYear++ }
     const nextMonthKey = `${nextYear}-${nextMonth.toString().padStart(2, '0')}`
-    
+
     let endNavData = fundData[nextMonthKey]
-    
+
     // 如果下月没有数据，往后查找
     if (!endNavData) {
       let searchYear = nextYear, searchMonth = nextMonth
@@ -76,20 +89,15 @@ export function useSimulation(loadedFundData = null) {
     // 如果没有下月数据，使用当月数据作为月末净值
     if (!endNavData) endNavData = startNavData
 
-    // 打印2015年1月的数据
-    if (month === '2015-01') {
-      console.log('2015年1月第一天净值:', startNavData.startNav, '时间:', startNavData.startDate)
-      console.log('2015年1月最后一天净值:', endNavData.endNav, '时间:', endNavData.endDate)
-    }
-
     return {
       startNav: startNavData.startNav,
       endNav: endNavData.endNav
     }
   }, [fundNavData])
 
-  const simulationResult = useMemo(() => {
-    const months = []
+  // 执行计算的核心函数
+  const performCalculation = useCallback((): SimulationResult => {
+    const months: string[] = []
     let currentDate = new Date(simulationParams.startDate + '-01')
     const endDate = new Date(simulationParams.endDate + '-01')
 
@@ -101,23 +109,19 @@ export function useSimulation(loadedFundData = null) {
     }
 
     // 状态记录
-    let initialBalance = currentAccount.initialBalance  // 初始余额（保持不变）
-    let fundAssets = 0  // 基金资产（会随净值变化）
-    
-    const monthlyData = []
-    let maxDrawdown = { percent: 0, amount: 0, month: '' }
+    let initialBalance = currentAccount.initialBalance
+    let fundAssets = 0
+
+    const monthlyData: MonthlyData[] = []
+    let maxDrawdown: MaxDrawdown = { percent: 0, amount: 0, month: '' }
     let previousTotal = currentAccount.initialBalance
 
     months.forEach((month, index) => {
-      // 1. 月初基金资产 = 上月末结转
       const monthStartFundAssets = fundAssets
 
-      // 2. 月收入和支出
       const income = getMonthlyIncome(month, incomeSegments)
       const expense = monthlyExpense + extraExpenses.reduce((sum, exp) => sum + exp.amount / 12, 0)
-      const netIncome = income - expense
 
-      // 3. 定投金额（从可支配收入中扣除，加入基金资产）
       let totalFundInvestment = 0
       funds.forEach(fund => {
         if (month >= fund.startDate && month <= fund.endDate) {
@@ -125,14 +129,12 @@ export function useSimulation(loadedFundData = null) {
         }
       })
 
-      // 4. 计算净值增长率
       let navGrowth = 1
       let startNav = 1
       let endNav = 1
-      
-      // 如果有基金配置，获取净值增长率
+
       if (funds.length > 0) {
-        const navs = {}
+        const navs: Record<string, MonthNavs | null> = {}
         funds.forEach(fund => {
           const nav = getMonthNavs(month, fund.fundCode)
           if (nav) navs[fund.fundCode] = nav
@@ -145,26 +147,19 @@ export function useSimulation(loadedFundData = null) {
           navGrowth = endNav / startNav
         }
       }
-      
-      // 5. 计算月末基金资产 = (月初基金资产 + 定投金额) * 净值增长率
+
       fundAssets = (monthStartFundAssets + totalFundInvestment) * navGrowth
-      
-      // 6. 计算月末总资产 = 初始余额 + 基金资产
       const totalAssets = initialBalance + fundAssets
 
-      // 7. 累计投入
       const monthIndex = index + 1
       const cumulativeInvestment = currentAccount.initialBalance + totalFundInvestment * monthIndex
 
-      // 8. 当月收益
       const monthStartTotalAssets = initialBalance + monthStartFundAssets
-      const monthlyReturn = totalAssets - (monthStartTotalAssets + netIncome)
+      const monthlyReturn = totalAssets - (monthStartTotalAssets + (income - expense))
 
-      // 9. 计算基金资产和活期余额（用于展示）
       const totalFundAssets = fundAssets
       const currentBalance = initialBalance
 
-      // 10. 最大回撤
       if (totalAssets < previousTotal) {
         const drawdownAmount = previousTotal - totalAssets
         const drawdownPercent = (drawdownAmount / previousTotal) * 100
@@ -201,7 +196,18 @@ export function useSimulation(loadedFundData = null) {
     }
   }, [incomeSegments, monthlyExpense, extraExpenses, funds, currentAccount, simulationParams, getMonthlyIncome, getMonthNavs])
 
-  const shiftToFuture = useCallback((historyResult, shiftYears) => {
+  // 当 calculationTrigger 变化时执行计算
+  const simulationResult = useMemo<SimulationResult | null>(() => {
+    if (calculationTrigger === 0) return null
+    return performCalculation()
+  }, [calculationTrigger, performCalculation])
+
+  // 触发计算的函数
+  const triggerCalculation = useCallback(() => {
+    setCalculationTrigger(prev => prev + 1)
+  }, [])
+
+  const shiftToFuture = useCallback((historyResult: SimulationResult | null, shiftYears: number): SimulationResult | null => {
     if (!historyResult) return null
     const shiftedData = historyResult.monthlyData.map(item => {
       const [year, month] = item.month.split('-')
@@ -239,6 +245,7 @@ export function useSimulation(loadedFundData = null) {
     deposits, setDeposits, addDeposit,
     currentAccount, setCurrentAccount,
     simulationParams, setSimulationParams,
-    simulationResult, shiftToFuture
+    simulationResult, shiftToFuture,
+    triggerCalculation
   }
 }
