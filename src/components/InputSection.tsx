@@ -1,4 +1,5 @@
-import { useMemo } from 'react'
+import { useMemo, useState, useEffect } from 'react'
+import { fundDataLoader } from '../services/FundDataLoader'
 import type {
   LoadedFundData,
   SimulationParams,
@@ -16,7 +17,6 @@ interface InputSectionProps {
   setFundCodeInput: (value: string) => void
   fundLoading: boolean
   fundError: string | null
-  loadedFundData: LoadedFundData | null
   loadFundData: () => void
   // Simulation params
   simulationParams: SimulationParams
@@ -49,7 +49,7 @@ interface InputSectionProps {
 
 export function InputSection({
   // Fund data
-  fundCodeInput, setFundCodeInput, fundLoading, fundError, loadedFundData, loadFundData,
+  fundCodeInput, setFundCodeInput, fundLoading, fundError, loadFundData,
   // Simulation params
   simulationParams, setSimulationParams,
   // Income
@@ -67,29 +67,26 @@ export function InputSection({
   // Calculation
   onCalculate
 }: InputSectionProps) {
+  // 直接从 FundDataLoader 获取数据，保持完全同步
+  const [allLoadedFunds, setAllLoadedFunds] = useState<LoadedFundData[]>(fundDataLoader.getAllLoadedFunds())
+
+  useEffect(() => {
+    // 订阅 FundDataLoader 的数据变化
+    const unsubscribe = fundDataLoader.subscribe('allFundsLoaded', (funds) => {
+      setAllLoadedFunds([...funds])
+    })
+    return unsubscribe
+  }, [])
+
   // 合并内置基金和已加载的基金
   const availableFunds = useMemo<AvailableFund[]>(() => {
-    // 内置基金列表
-    const builtinFunds: AvailableFund[] = [
-      { code: "519702", name: "519702", type: "混合型" }
-    ]
-
-    if (loadedFundData) {
-      // 如果加载了真实数据，使用真实基金名称
-      const exists = builtinFunds.find(f => f.code === loadedFundData.code)
-      if (exists) {
-        // 更新内置基金的名称
-        return builtinFunds.map(f =>
-          f.code === loadedFundData.code
-            ? { ...f, name: loadedFundData.name }
-            : f
-        )
-      } else {
-        return [...builtinFunds, { code: loadedFundData.code, name: loadedFundData.name, type: '加载的基金' }]
-      }
-    }
-    return builtinFunds
-  }, [loadedFundData])
+    // 使用所有已加载的基金
+    return allLoadedFunds.map((fund: LoadedFundData) => ({
+      code: fund.code,
+      name: fund.name,
+      type: '加载的基金'
+    }))
+  }, [allLoadedFunds])
 
   return (
     <div className="input-section">
@@ -123,8 +120,9 @@ export function InputSection({
             </button>
           </div>
           {fundError && <p style={{ color: '#ff5722', fontSize: '0.8em', marginTop: '0.25rem' }}>{fundError}</p>}
-          {loadedFundData && <p style={{ color: '#4caf50', fontSize: '0.8em', marginTop: '0.25rem' }}>已加载: {loadedFundData.name}</p>}
+          {allLoadedFunds.length > 0 && <p style={{ color: '#4caf50', fontSize: '0.8em', marginTop: '0.25rem' }}>已加载 {allLoadedFunds.length} 个基金</p>}
         </div>
+
         <div className="form-group">
           <label>模拟开始日期</label>
           <input
@@ -272,12 +270,17 @@ export function InputSection({
                   const newFunds = funds.map(f =>
                     f.id === fund.id ? { ...f, fundCode: e.target.value } : f
                   )
+                  console.log('newFunds', newFunds)
                   setFunds(newFunds)
                 }}
               >
-                {availableFunds.map(f => (
-                  <option key={f.code} value={f.code}>{f.name}</option>
-                ))}
+                {availableFunds.length === 0 ? (
+                  <option value="">请先加载基金</option>
+                ) : (
+                  availableFunds.map(f => (
+                    <option key={f.code} value={f.code}>{f.name}</option>
+                  ))
+                )}
               </select>
             </div>
             <div className="form-group">
