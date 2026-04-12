@@ -141,19 +141,47 @@ export function OutputSection({
         )}
       </div>
 
-      {/* 净值增长数据 */}
+      {/* 每月资产增长数据 */}
       {activeView === 'history' && simulationResult && (
-        <div className="nav-growth-data" style={{ marginBottom: '1rem', background: 'rgba(255,255,255,0.05)', padding: '1rem', borderRadius: '8px' }}>
-          <h3 style={{ marginBottom: '0.5rem', fontSize: '0.9em' }}>每月净值增长数据</h3>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '0.5rem', fontSize: '0.8em' }}>
+        <div className="asset-growth-data" style={{ marginBottom: '1rem', background: 'rgba(255,255,255,0.05)', padding: '1rem', borderRadius: '8px' }}>
+          <h3 style={{ marginBottom: '0.5rem', fontSize: '0.9em' }}>每月资产增长数据</h3>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '0.75rem', fontSize: '0.8em' }}>
             {simulationResult.monthlyData.map((data, idx) => (
-              <div key={idx} style={{ padding: '0.5rem', background: 'rgba(255,255,255,0.03)', borderRadius: '4px' }}>
-                <div style={{ fontWeight: 'bold', marginBottom: '0.25rem' }}>{data.month}</div>
-                <div>初: {data.startNav?.toFixed(4)}</div>
-                <div>末: {data.endNav?.toFixed(4)}</div>
-                <div style={{ color: (data.navGrowth || 1) >= 1 ? '#4caf50' : '#f44336' }}>
-                  增长: {((data.navGrowth || 1) * 100 - 100).toFixed(2)}%
+              <div key={idx} style={{ padding: '0.75rem', background: 'rgba(255,255,255,0.03)', borderRadius: '4px' }}>
+                <div style={{ fontWeight: 'bold', marginBottom: '0.5rem', fontSize: '1em' }}>{data.month}</div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.25rem', marginBottom: '0.5rem' }}>
+                  <div>月初资产: {(data.startAssets / 10000).toFixed(2)}万</div>
+                  <div>月末资产: {(data.endAssets / 10000).toFixed(2)}万</div>
                 </div>
+                <div style={{ display: 'flex', gap: '1rem', marginBottom: '0.5rem' }}>
+                  <span style={{ color: data.growthRate >= 1 ? '#4caf50' : '#f44336' }}>
+                    增长率: {(data.growthRate * 100 - 100).toFixed(2)}%
+                  </span>
+                  <span style={{ color: data.growthAmount >= 0 ? '#4caf50' : '#f44336' }}>
+                    增长额: {(data.growthAmount / 10000).toFixed(2)}万
+                  </span>
+                </div>
+                {data.fundDetails && data.fundDetails.length > 0 && (
+                  <div style={{ marginTop: '0.5rem', paddingTop: '0.5rem', borderTop: '1px solid rgba(255,255,255,0.1)' }}>
+                    <div style={{ fontWeight: 'bold', marginBottom: '0.25rem' }}>基金明细:</div>
+                    {data.fundDetails.map((fund, fundIdx) => (
+                      <div key={fundIdx} style={{ marginBottom: '0.25rem', paddingLeft: '0.5rem' }}>
+                        <div>
+                          {fund.fundName} ({fund.fundCode}):
+                          <span style={{ color: fund.growthRate >= 1 ? '#4caf50' : '#f44336' }}>
+                            增长率 {(fund.growthRate * 100 - 100).toFixed(2)}%
+                          </span>
+                          <span style={{ color: fund.growthAmount >= 0 ? '#4caf50' : '#f44336', marginLeft: '0.5rem' }}>
+                            增长额 {(fund.growthAmount / 10000).toFixed(2)}万
+                          </span>
+                        </div>
+                        <div style={{ fontSize: '0.9em', color: 'rgba(255,255,255,0.6)' }}>
+                          月初: {(fund.startAssets / 10000).toFixed(2)}万 → 月末: {(fund.endAssets / 10000).toFixed(2)}万 (定投: {(fund.investmentAmount / 10000).toFixed(2)}万)
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             ))}
           </div>

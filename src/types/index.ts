@@ -43,6 +43,17 @@ export interface DepositAllocation {
   annualInterestRate: number
 }
 
+// 基金月度数据
+export interface FundMonthlyData {
+  fundCode: string
+  fundName: string
+  startAssets: number
+  endAssets: number
+  growthRate: number
+  growthAmount: number
+  investmentAmount: number
+}
+
 // 月度数据类型
 export interface MonthlyData {
   month: string
@@ -50,6 +61,12 @@ export interface MonthlyData {
   totalAssets: number
   fundIncome: number
   depositIncome: number
+  // 资产增长数据
+  startAssets: number
+  endAssets: number
+  growthRate: number
+  growthAmount: number
+  fundDetails: FundMonthlyData[]
   // 兼容旧代码的字段
   totalInvestment?: number
   currentBalance?: number

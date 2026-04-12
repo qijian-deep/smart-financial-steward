@@ -201,9 +201,10 @@ class SimulationEngine {
   private calculateFundIncomeForMonth(
     month: string,
     fundAssets: Map<string, number>
-  ): { totalIncome: number; updatedAssets: Map<string, number> } {
+  ): { totalIncome: number; updatedAssets: Map<string, number>; fundDetails: import('../types').FundMonthlyData[] } {
     let totalIncome = 0
     const updatedAssets = new Map(fundAssets)
+    const fundDetails: import('../types').FundMonthlyData[] = []
 
     for (const config of this.fundConfigs) {
       if (month < config.startDate || month > config.endDate) continue
@@ -221,9 +222,27 @@ class SimulationEngine {
       totalIncome += monthIncome
 
       updatedAssets.set(fundCode, monthEndAssets)
+
+      // 获取基金名称
+      const fundData = fundDataLoader.getFundDataByCode(fundCode)
+      const fundName = fundData?.name || fundCode
+
+      // 计算基金增长金额
+      const fundGrowthAmount = monthEndAssets - monthStartAssets
+
+      // 保存基金详情
+      fundDetails.push({
+        fundCode,
+        fundName,
+        startAssets: monthStartAssets,
+        endAssets: monthEndAssets,
+        growthRate,
+        growthAmount: fundGrowthAmount,
+        investmentAmount: monthlyInvestment
+      })
     }
 
-    return { totalIncome, updatedAssets }
+    return { totalIncome, updatedAssets, fundDetails }
   }
 
   /**
@@ -282,6 +301,8 @@ class SimulationEngine {
     let cumulativeInvestment = this.initialBalance
     // 基金资产记录（按基金code）
     let fundAssets = new Map<string, number>()
+    // 上月总资产
+    let lastMonthTotalAssets = this.initialBalance
 
     for (let i = 0; i < months.length; i++) {
       const month = months[i]
@@ -300,8 +321,11 @@ class SimulationEngine {
         cumulativeInvestment += monthlyIncome - this.monthlyExpenses - monthlyExtExpense
       }
 
+      // 月初资产 = 上月总资产 + 本月新投入
+      const startAssets = lastMonthTotalAssets + (i === 0 ? cumulativeInvestment - this.initialBalance : monthlyIncome - this.monthlyExpenses - monthlyExtExpense)
+
       // 计算基金收益
-      const { totalIncome: fundIncome, updatedAssets } = this.calculateFundIncomeForMonth(month, fundAssets)
+      const { totalIncome: fundIncome, updatedAssets, fundDetails } = this.calculateFundIncomeForMonth(month, fundAssets)
       fundAssets = updatedAssets
 
       // 计算存款收益
@@ -310,13 +334,28 @@ class SimulationEngine {
       // 总资产 = 累计投入 + 基金收益 + 存款收益
       const totalAssets = cumulativeInvestment + fundIncome + depositIncome
 
+      // 月末资产
+      const endAssets = totalAssets
+
+      // 计算增长率和增长金额
+      const growthAmount = endAssets - startAssets
+      const growthRate = startAssets > 0 ? endAssets / startAssets : 1
+
       monthlyData.push({
         month,
         cumulativeInvestment,
         totalAssets,
         fundIncome,
-        depositIncome
+        depositIncome,
+        startAssets,
+        endAssets,
+        growthRate,
+        growthAmount,
+        fundDetails
       })
+
+      // 更新上月总资产
+      lastMonthTotalAssets = totalAssets
     }
 
     // 计算总收益
@@ -331,9 +370,9 @@ class SimulationEngine {
     let maxDrawdownAmount = 0
     let maxDrawdownPercent = 0
     let maxDrawdownMonth = ''
-    let peak = finalAssets
+    let peak = 0
 
-    for (let i = monthlyData.length - 1; i >= 0; i--) {
+    for (let i = 0; i < monthlyData.length; i++) {
       const data = monthlyData[i]
       if (data.totalAssets > peak) {
         peak = data.totalAssets
