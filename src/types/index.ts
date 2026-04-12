@@ -4,6 +4,7 @@ export interface FundNavData {
   startDate: string
   endNav: number
   endDate: string
+  growthRate: number
   allData: Array<{
     year: number
     month: number

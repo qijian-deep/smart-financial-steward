@@ -103,6 +103,7 @@ export function buildFundNavData(
     startDate: `${startDay.year}-${startDay.month.toString().padStart(2, '0')}-${startDay.day.toString().padStart(2, '0')}`,
     endNav: endDay.nav,
     endDate: `${endDay.year}-${endDay.month.toString().padStart(2, '0')}-${endDay.day.toString().padStart(2, '0')}`,
+    growthRate: startDay.nav !== 0 ? endDay.nav / startDay.nav : 1,
     allData
   }
 }
