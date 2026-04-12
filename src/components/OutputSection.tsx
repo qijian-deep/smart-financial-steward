@@ -22,9 +22,14 @@ export function OutputSection({
 
   const chartData = useMemo<MonthlyData[] | null>(() => {
     if (!simulationResult) return null
-    return activeView === 'history'
+    const data = activeView === 'history'
       ? simulationResult.monthlyData
       : shiftToFuture(simulationResult, simulationParams.shiftYears)?.monthlyData || null
+    // 映射字段名以兼容图表
+    return data?.map(item => ({
+      ...item,
+      totalInvestment: item.cumulativeInvestment
+    })) || null
   }, [activeView, simulationResult, shiftToFuture, simulationParams.shiftYears])
 
   const maxDrawdownPoint = useMemo<MonthlyData | null>(() => {
@@ -40,7 +45,7 @@ export function OutputSection({
   }, [chartData, simulationResult, activeView, simulationParams.shiftYears])
 
   const hasNegativeBalance = useMemo<boolean>(() => {
-    return simulationResult?.monthlyData?.some(item => item.currentBalance < 0) || false
+    return simulationResult?.monthlyData?.some(item => (item.currentBalance || 0) < 0) || false
   }, [simulationResult])
 
   return (
@@ -70,7 +75,7 @@ export function OutputSection({
               <XAxis dataKey="month" />
               <YAxis tickFormatter={(value: number) => `${(value / 10000).toFixed(1)}万`} />
               <Tooltip
-                formatter={(value) => [`${(Number(value) / 10000).toFixed(2)}万元`, '']}
+                formatter={(value, name) => [`${(Number(value) / 10000).toFixed(2)}万元`, name]}
                 labelFormatter={(label) => `日期: ${String(label)}`}
               />
               <Legend />
@@ -146,8 +151,8 @@ export function OutputSection({
                 <div style={{ fontWeight: 'bold', marginBottom: '0.25rem' }}>{data.month}</div>
                 <div>初: {data.startNav?.toFixed(4)}</div>
                 <div>末: {data.endNav?.toFixed(4)}</div>
-                <div style={{ color: data.navGrowth >= 1 ? '#4caf50' : '#f44336' }}>
-                  增长: {(data.navGrowth * 100 - 100).toFixed(2)}%
+                <div style={{ color: (data.navGrowth || 1) >= 1 ? '#4caf50' : '#f44336' }}>
+                  增长: {((data.navGrowth || 1) * 100 - 100).toFixed(2)}%
                 </div>
               </div>
             ))}

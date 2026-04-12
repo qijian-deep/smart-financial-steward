@@ -1,50 +1,64 @@
 import './App.css'
-import { useEffect, useRef, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useMemo } from 'react'
 import { fundDataLoader } from './services/FundDataLoader'
-import { SimulationEngine } from './services/SimulationEngine'
+import { simulationEngine } from './services/SimulationEngine'
 import { InputSection } from './components/InputSection'
 import { OutputSection } from './components/OutputSection'
-import type { SimulationResult, SimulationParams, IncomeSegment, Fund, Deposit } from './types'
+import type { SimulationResult, FundConfig, MonthlyIncome, DepositAllocation, SimulationParams, IncomeSegment } from './types'
 
 function App() {
-  // 使用 ref 存储类实例，避免重复创建
-  const simulationEngineRef = useRef<SimulationEngine | null>(null)
-
-  // 状态用于触发重新渲染
+  // 基金加载相关状态
   const [fundCodeInput, setFundCodeInput] = useState<string>('')
   const [fundLoading, setFundLoading] = useState<boolean>(false)
   const [fundError, setFundError] = useState<string | null>(null)
 
+  // 模拟结果状态
   const [simulationResult, setSimulationResult] = useState<SimulationResult | null>(null)
   const [, forceUpdate] = useState({})
 
-  // 初始化类实例
-  useEffect(() => {
-    // 订阅基金数据加载器
-    const unsubscribe = fundDataLoader.subscribe('allFundsLoaded', () => {
-      const funds = fundDataLoader.getAllLoadedFunds()
-      // 同步第一个基金到模拟引擎
-      if (funds.length > 0) {
-        simulationEngineRef.current?.setLoadedFundData(funds[0])
-        // 自动添加基金配置
-        if (simulationEngineRef.current && simulationEngineRef.current.getFunds().length === 0) {
-          simulationEngineRef.current.setFunds([{
-            id: 1,
-            fundCode: funds[0].code,
-            monthlyAmount: 5000,
-            startDate: simulationEngineRef.current.getSimulationParams().startDate,
-            endDate: simulationEngineRef.current.getSimulationParams().endDate
-          }])
-          forceUpdate({})
-        }
-      }
-    });
-    (window as any).fundDataLoader = fundDataLoader
+  // 模拟参数状态
+  const [simulationParams, setSimulationParams] = useState<SimulationParams>({
+    startDate: '2015-01',
+    endDate: '2015-03',
+    shiftYears: 10
+  })
 
-    // 创建模拟引擎
-    simulationEngineRef.current = new SimulationEngine({
-      onResultChange: (result) => setSimulationResult(result)
+  // 初始化
+  useEffect(() => {
+    // 初始化 simulationEngine 的默认日期
+    simulationEngine.setMockStartDate('2015-01')
+    simulationEngine.setMockEndDate('2015-03')
+    // 初始化默认月收入
+    simulationEngine.setMonthlyIncomes([{ income: 10000, startDate: '2015-01', endDate: '2015-03' }])
+    // 初始化默认月支出
+    simulationEngine.setMonthlyExpenses(5000)
+    // 初始化默认初始余额
+    simulationEngine.setInitialBalance(10000)
+
+    // 订阅模拟引擎的结果变化
+    const unsubscribeResult = simulationEngine.subscribe('resultChange', (result) => {
+      setSimulationResult(result)
     })
+
+    // 订阅基金数据加载器
+    const unsubscribeFunds = fundDataLoader.subscribe('allFundsLoaded', () => {
+      const funds = fundDataLoader.getAllLoadedFunds()
+      // 自动添加基金配置（如果没有的话）
+      if (funds.length > 0 && simulationEngine.getFundConfigs().length === 0) {
+        const startDate = simulationEngine.getMockStartDate() || '2015-01'
+        const endDate = simulationEngine.getMockEndDate() || '2015-03'
+        simulationEngine.setFundConfigs([{
+          fundCode: funds[0].code,
+          investmentAmount: 5000,
+          startDate,
+          endDate
+        }])
+        forceUpdate({})
+      }
+    })
+
+    ;(window as any).fundDataLoader = fundDataLoader
+    ;(window as any).simulationEngine = simulationEngine
 
     // 页面初始化后自动加载 localStorage 中的所有基金
     const timer = setTimeout(() => {
@@ -53,7 +67,8 @@ function App() {
 
     return () => {
       clearTimeout(timer)
-      unsubscribe()
+      unsubscribeResult()
+      unsubscribeFunds()
     }
   }, [])
 
@@ -66,7 +81,6 @@ function App() {
 
     try {
       await fundDataLoader.loadFundData(fundCodeInput)
-      // 保存到 localStorage
       fundDataLoader.saveToLocalStorage(fundCodeInput)
     } catch (error) {
       setFundError(error instanceof Error ? error.message : '加载失败')
@@ -75,131 +89,119 @@ function App() {
     }
   }, [fundCodeInput])
 
-  // 获取模拟引擎的 getter 方法
+  // 获取模拟数据
   const getSimulationData = useCallback(() => {
-    const engine = simulationEngineRef.current
-    if (!engine) return null
     return {
-      incomeSegments: engine.getIncomeSegments(),
-      monthlyExpense: engine.getMonthlyExpense(),
-      extraExpenses: engine.getExtraExpenses(),
-      funds: engine.getFunds(),
-      deposits: engine.getDeposits(),
-      currentAccount: engine.getCurrentAccount(),
-      simulationParams: engine.getSimulationParams()
+      fundConfigs: simulationEngine.getFundConfigs(),
+      monthlyIncomes: simulationEngine.getMonthlyIncomes(),
+      monthlyExpenses: simulationEngine.getMonthlyExpenses(),
+      yearExtExpenses: simulationEngine.getYearExtExpenses(),
+      depositAllocations: simulationEngine.getDepositAllocations(),
+      initialBalance: simulationEngine.getInitialBalance(),
+      mockStartDate: simulationEngine.getMockStartDate(),
+      mockEndDate: simulationEngine.getMockEndDate()
     }
   }, [])
 
   // 设置器方法
-  const setIncomeSegments = useCallback((segments: IncomeSegment[]) => {
-    simulationEngineRef.current?.setIncomeSegments(segments)
+  const setFundConfigs = useCallback((configs: FundConfig[]) => {
+    simulationEngine.setFundConfigs(configs)
     forceUpdate({})
   }, [])
 
-  const setMonthlyExpense = useCallback((value: number) => {
-    simulationEngineRef.current?.setMonthlyExpense(value)
+  const setMonthlyIncomes = useCallback((incomes: MonthlyIncome[]) => {
+    simulationEngine.setMonthlyIncomes(incomes)
     forceUpdate({})
   }, [])
 
-  const setExtraExpenses = useCallback((expenses: { id: number; amount: number }[]) => {
-    simulationEngineRef.current?.setExtraExpenses(expenses)
+  const setMonthlyExpenses = useCallback((value: number) => {
+    simulationEngine.setMonthlyExpenses(value)
     forceUpdate({})
   }, [])
 
-  const setFunds = useCallback((funds: Fund[]) => {
-    simulationEngineRef.current?.setFunds(funds)
+  const setYearExtExpenses = useCallback((expenses: number[]) => {
+    simulationEngine.setYearExtExpenses(expenses)
     forceUpdate({})
   }, [])
 
-  const setDeposits = useCallback((deposits: Deposit[]) => {
-    simulationEngineRef.current?.setDeposits(deposits)
+  const setDepositAllocations = useCallback((allocations: DepositAllocation[]) => {
+    simulationEngine.setDepositAllocations(allocations)
     forceUpdate({})
   }, [])
 
-  const setCurrentAccount = useCallback((account: { initialBalance: number; annualRate: number }) => {
-    simulationEngineRef.current?.setCurrentAccount(account)
+  const setInitialBalance = useCallback((value: number) => {
+    simulationEngine.setInitialBalance(value)
     forceUpdate({})
   }, [])
 
-  const setSimulationParams = useCallback((params: SimulationParams) => {
-    const engine = simulationEngineRef.current
-    if (!engine) return
-
-    engine.setSimulationParams(params)
-
-    // 同步到所有配置
-    engine.setIncomeSegments(
-      engine.getIncomeSegments().map(s => ({
-        ...s,
-        startDate: params.startDate,
-        endDate: params.endDate
-      }))
-    )
-
-    engine.setFunds(
-      engine.getFunds().map(f => ({
-        ...f,
-        startDate: params.startDate,
-        endDate: params.endDate
-      }))
-    )
-
-    engine.setDeposits(
-      engine.getDeposits().map(d => ({
-        ...d,
-        date: params.startDate
-      }))
-    )
-
-    forceUpdate({})
-  }, [])
-
-  // 添加方法
-  const addIncomeSegment = useCallback(() => {
-    simulationEngineRef.current?.addIncomeSegment()
-    forceUpdate({})
-  }, [])
-
-  const addFund = useCallback(() => {
-    simulationEngineRef.current?.addFund()
-    forceUpdate({})
-  }, [])
-
-  const addDeposit = useCallback(() => {
-    simulationEngineRef.current?.addDeposit()
-    forceUpdate({})
-  }, [])
-
-  const addExtraExpense = useCallback(() => {
-    simulationEngineRef.current?.addExtraExpense()
+  const setMockDateRange = useCallback((startDate: string, endDate: string) => {
+    simulationEngine.setMockStartDate(startDate)
+    simulationEngine.setMockEndDate(endDate)
     forceUpdate({})
   }, [])
 
   // 触发计算
   const triggerCalculation = useCallback(() => {
-    simulationEngineRef.current?.calculate()
+    simulationEngine.calculate()
   }, [])
 
-  // 平移到未来
-  const shiftToFuture = useCallback((result: SimulationResult | null, years: number) => {
-    if (!simulationEngineRef.current || !result) return null
-    return simulationEngineRef.current.shiftToFuture(years)
+  // 将历史结果平移到未来
+  const shiftToFuture = useCallback((historyResult: SimulationResult | null, shiftYears: number): SimulationResult | null => {
+    if (!historyResult) return null
+    
+    const shiftedMonthlyData = historyResult.monthlyData.map(item => {
+      const [year, month] = item.month.split('-')
+      const newYear = parseInt(year) + shiftYears
+      return {
+        ...item,
+        month: `${newYear}-${month}`
+      }
+    })
+
+    return {
+      ...historyResult,
+      monthlyData: shiftedMonthlyData
+    }
+  }, [])
+
+  // 收入分段（用于显示）
+  const incomeSegments = useMemo<IncomeSegment[]>(() => {
+    const data = getSimulationData()
+    if (data.monthlyIncomes.length === 0) return []
+    
+    return data.monthlyIncomes.map((income, index) => ({
+      id: index,
+      name: `收入阶段 ${index + 1}`,
+      startDate: income.startDate,
+      endDate: income.endDate,
+      monthlyIncome: income.income
+    }))
   }, [])
 
   const data = getSimulationData()
 
-  // 默认数据，用于初始化时
+  // 默认数据
   const defaultData = {
-    incomeSegments: [{ id: 1, monthlyIncome: 10000, startDate: '2015-01', endDate: '2015-03' }],
-    monthlyExpense: 5000,
-    extraExpenses: [] as { id: number; amount: number }[],
-    funds: [] as Fund[],
-    deposits: [] as Deposit[],
-    currentAccount: { initialBalance: 10000, annualRate: 0 },
-    simulationParams: { startDate: '2015-01', endDate: '2015-03', shiftYears: 0 }
+    fundConfigs: [] as FundConfig[],
+    monthlyIncomes: [{ income: 10000, startDate: '2015-01', endDate: '2015-03' }] as MonthlyIncome[],
+    monthlyExpenses: 5000,
+    yearExtExpenses: [] as number[],
+    depositAllocations: [] as DepositAllocation[],
+    initialBalance: 10000,
+    mockStartDate: '2015-01',
+    mockEndDate: '2015-03'
   }
 
-  const renderData = data || defaultData
+  const renderData = {
+    fundConfigs: data.fundConfigs.length > 0 ? data.fundConfigs : defaultData.fundConfigs,
+    monthlyIncomes: data.monthlyIncomes.length > 0 ? data.monthlyIncomes : defaultData.monthlyIncomes,
+    monthlyExpenses: data.monthlyExpenses || defaultData.monthlyExpenses,
+    yearExtExpenses: data.yearExtExpenses.length > 0 ? data.yearExtExpenses : defaultData.yearExtExpenses,
+    depositAllocations: data.depositAllocations.length > 0 ? data.depositAllocations : defaultData.depositAllocations,
+    initialBalance: data.initialBalance || defaultData.initialBalance,
+    mockStartDate: data.mockStartDate || defaultData.mockStartDate,
+    mockEndDate: data.mockEndDate || defaultData.mockEndDate
+  }
 
   return (
     <div className="app">
@@ -213,31 +215,22 @@ function App() {
           fundLoading={fundLoading}
           fundError={fundError}
           loadFundData={loadFundData}
-          // Simulation params
-          simulationParams={renderData.simulationParams}
-          setSimulationParams={setSimulationParams}
-          // Income
-          incomeSegments={renderData.incomeSegments}
-          setIncomeSegments={setIncomeSegments}
-          addIncomeSegment={addIncomeSegment}
-          // Expense
-          monthlyExpense={renderData.monthlyExpense}
-          setMonthlyExpense={setMonthlyExpense}
-          // Extra expenses
-          extraExpenses={renderData.extraExpenses}
-          setExtraExpenses={setExtraExpenses}
-          addExtraExpense={addExtraExpense}
-          // Funds
-          funds={renderData.funds}
-          setFunds={setFunds}
-          addFund={addFund}
-          // Deposits
-          deposits={renderData.deposits}
-          setDeposits={setDeposits}
-          addDeposit={addDeposit}
-          // Current account
-          currentAccount={renderData.currentAccount}
-          setCurrentAccount={setCurrentAccount}
+          // Simulation data
+          fundConfigs={renderData.fundConfigs}
+          setFundConfigs={setFundConfigs}
+          monthlyIncomes={renderData.monthlyIncomes}
+          setMonthlyIncomes={setMonthlyIncomes}
+          monthlyExpenses={renderData.monthlyExpenses}
+          setMonthlyExpenses={setMonthlyExpenses}
+          yearExtExpenses={renderData.yearExtExpenses}
+          setYearExtExpenses={setYearExtExpenses}
+          depositAllocations={renderData.depositAllocations}
+          setDepositAllocations={setDepositAllocations}
+          initialBalance={renderData.initialBalance}
+          setInitialBalance={setInitialBalance}
+          mockStartDate={renderData.mockStartDate}
+          mockEndDate={renderData.mockEndDate}
+          setMockDateRange={setMockDateRange}
           // Calculation
           onCalculate={triggerCalculation}
         />
@@ -245,8 +238,8 @@ function App() {
         <OutputSection
           simulationResult={simulationResult}
           shiftToFuture={shiftToFuture}
-          simulationParams={renderData.simulationParams}
-          incomeSegments={renderData.incomeSegments}
+          simulationParams={simulationParams}
+          incomeSegments={incomeSegments}
         />
       </div>
     </div>

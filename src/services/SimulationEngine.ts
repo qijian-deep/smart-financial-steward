@@ -1,209 +1,259 @@
 import type {
-  IncomeSegment,
-  ExtraExpense,
-  Fund,
-  Deposit,
-  CurrentAccount,
-  SimulationParams,
+  FundConfig,
+  MonthlyIncome,
+  DepositAllocation,
   SimulationResult,
-  MonthlyData,
-  MaxDrawdown,
-  LoadedFundData,
-  MonthNavs
+  MonthlyData
 } from '../types'
+import { fundDataLoader } from './FundDataLoader'
 
-export class SimulationEngine {
-  private incomeSegments: IncomeSegment[] = [
-    { id: 1, monthlyIncome: 10000, startDate: '2015-01', endDate: '2015-03' }
-  ]
-  private monthlyExpense: number = 5000
-  private extraExpenses: ExtraExpense[] = []
-  private funds: Fund[] = []
-  private deposits: Deposit[] = []
-  private currentAccount: CurrentAccount = { initialBalance: 10000, annualRate: 0 }
-  private simulationParams: SimulationParams = {
-    startDate: '2015-01',
-    endDate: '2015-03',
-    shiftYears: 0
-  }
-  
-  private loadedFundData: LoadedFundData | null = null
+// 事件类型定义
+type EventKey = 'resultChange' | string
+
+// 事件数据映射
+type EventDataMap = {
+  resultChange: SimulationResult | null
+}
+
+class SimulationEngine {
+  // 属性
+  private fundConfigs: FundConfig[] = []
+  private monthlyIncomes: MonthlyIncome[] = []
+  private monthlyExpenses: number = 0
+  private yearExtExpenses: number[] = []
+  private depositAllocations: DepositAllocation[] = []
+  private initialBalance: number = 0
+  private mockStartDate: string = ''
+  private mockEndDate: string = ''
+
+  // 模拟结果
   private simulationResult: SimulationResult | null = null
 
-  // 回调函数
-  private onResultChange?: (result: SimulationResult | null) => void
+  // 事件监听器
+  private listeners: Map<EventKey, Set<(data: unknown) => void>> = new Map()
 
-  constructor(options?: {
-    onResultChange?: (result: SimulationResult | null) => void
-  }) {
-    if (options) {
-      this.onResultChange = options.onResultChange
+  // ==================== 事件监听 ====================
+
+  /**
+   * 添加监听器，返回取消订阅函数
+   * @param eventKey 事件标识
+   * @param listener 监听器函数
+   */
+  public subscribe<K extends EventKey>(
+    eventKey: K,
+    listener: (data: K extends keyof EventDataMap ? EventDataMap[K] : unknown) => void
+  ): () => void {
+    if (!this.listeners.has(eventKey)) {
+      this.listeners.set(eventKey, new Set())
+    }
+
+    const eventListeners = this.listeners.get(eventKey)!
+    eventListeners.add(listener as (data: unknown) => void)
+
+    // 如果是 resultChange 事件，立即触发一次当前数据
+    if (eventKey === 'resultChange') {
+      listener(this.simulationResult as K extends keyof EventDataMap ? EventDataMap[K] : unknown)
+    }
+
+    return () => {
+      eventListeners.delete(listener as (data: unknown) => void)
     }
   }
 
-  // Getters
-  getIncomeSegments(): IncomeSegment[] {
-    return this.incomeSegments
+  /**
+   * 通知指定事件的所有监听器
+   * @param eventKey 事件标识
+   * @param data 事件数据
+   */
+  private notifyListeners<K extends EventKey>(
+    eventKey: K,
+    data: K extends keyof EventDataMap ? EventDataMap[K] : unknown
+  ): void {
+    const eventListeners = this.listeners.get(eventKey)
+    if (eventListeners) {
+      eventListeners.forEach(listener => listener(data))
+    }
   }
 
-  getMonthlyExpense(): number {
-    return this.monthlyExpense
+  // ==================== Getters ====================
+  getFundConfigs(): FundConfig[] {
+    return this.fundConfigs
   }
 
-  getExtraExpenses(): ExtraExpense[] {
-    return this.extraExpenses
+  getMonthlyIncomes(): MonthlyIncome[] {
+    return this.monthlyIncomes
   }
 
-  getFunds(): Fund[] {
-    return this.funds
+  getMonthlyExpenses(): number {
+    return this.monthlyExpenses
   }
 
-  getDeposits(): Deposit[] {
-    return this.deposits
+  getYearExtExpenses(): number[] {
+    return this.yearExtExpenses
   }
 
-  getCurrentAccount(): CurrentAccount {
-    return this.currentAccount
+  getDepositAllocations(): DepositAllocation[] {
+    return this.depositAllocations
   }
 
-  getSimulationParams(): SimulationParams {
-    return this.simulationParams
+  getInitialBalance(): number {
+    return this.initialBalance
+  }
+
+  getMockStartDate(): string {
+    return this.mockStartDate
+  }
+
+  getMockEndDate(): string {
+    return this.mockEndDate
   }
 
   getSimulationResult(): SimulationResult | null {
     return this.simulationResult
   }
 
-  // Setters
-  setIncomeSegments(segments: IncomeSegment[]): void {
-    this.incomeSegments = segments
+  // ==================== Setters ====================
+  setFundConfigs(configs: FundConfig[]): void {
+    this.fundConfigs = configs
   }
 
-  setMonthlyExpense(value: number): void {
-    this.monthlyExpense = value
+  setMonthlyIncomes(incomes: MonthlyIncome[]): void {
+    this.monthlyIncomes = incomes
   }
 
-  setExtraExpenses(expenses: ExtraExpense[]): void {
-    this.extraExpenses = expenses
+  setMonthlyExpenses(expenses: number): void {
+    this.monthlyExpenses = expenses
   }
 
-  setFunds(funds: Fund[]): void {
-    this.funds = funds
+  setYearExtExpenses(expenses: number[]): void {
+    this.yearExtExpenses = expenses
   }
 
-  setDeposits(deposits: Deposit[]): void {
-    this.deposits = deposits
+  setDepositAllocations(allocations: DepositAllocation[]): void {
+    this.depositAllocations = allocations
   }
 
-  setCurrentAccount(account: CurrentAccount): void {
-    this.currentAccount = account
+  setInitialBalance(balance: number): void {
+    this.initialBalance = balance
   }
 
-  setSimulationParams(params: SimulationParams): void {
-    this.simulationParams = params
+  setMockStartDate(date: string): void {
+    this.mockStartDate = date
   }
 
-  setLoadedFundData(data: LoadedFundData | null): void {
-    this.loadedFundData = data
+  setMockEndDate(date: string): void {
+    this.mockEndDate = date
   }
 
-  // 添加方法
-  addIncomeSegment(): void {
-    const newId = this.incomeSegments.length + 1
-    this.incomeSegments = [...this.incomeSegments, { 
-      id: newId, 
-      monthlyIncome: 10000, 
-      startDate: this.simulationParams.startDate, 
-      endDate: this.simulationParams.endDate 
-    }]
+  // ==================== 辅助方法 ====================
+
+  /**
+   * 获取指定月份的月收入
+   */
+  private getMonthlyIncomeForMonth(month: string): number {
+    return this.monthlyIncomes
+      .filter(income => month >= income.startDate && month <= income.endDate)
+      .reduce((sum, income) => sum + income.income, 0)
   }
 
-  addFund(): void {
-    const newId = this.funds.length + 1
-    this.funds = [...this.funds, { 
-      id: newId, 
-      fundCode: this.loadedFundData?.code || '', 
-      monthlyAmount: 1000, 
-      startDate: this.simulationParams.startDate, 
-      endDate: this.simulationParams.endDate 
-    }]
+  /**
+   * 获取年额外支出的月平均值
+   */
+  private getMonthlyExtExpense(): number {
+    if (this.yearExtExpenses.length === 0) return 0
+    const total = this.yearExtExpenses.reduce((sum, exp) => sum + exp, 0)
+    return total / 12
   }
 
-  addDeposit(): void {
-    const newId = this.deposits.length + 1
-    this.deposits = [...this.deposits, { 
-      id: newId, 
-      amount: 10000, 
-      date: this.simulationParams.startDate, 
-      annualRate: 2.5, 
-      term: 12 
-    }]
-  }
+  /**
+   * 获取指定月份的基金净值增长率
+   */
+  private getFundGrowthRate(fundCode: string, month: string): number {
+    const fundData = fundDataLoader.getFundDataByCode(fundCode)
+    if (!fundData || !fundData.data) return 1
 
-  addExtraExpense(): void {
-    const newId = this.extraExpenses.length + 1
-    this.extraExpenses = [...this.extraExpenses, { id: newId, amount: 5000 }]
-  }
-
-  // 获取月收入
-  private getMonthlyIncome(date: string): number {
-    const segment = this.incomeSegments.find(s => date >= s.startDate && date <= s.endDate)
-    return segment ? segment.monthlyIncome : 0
-  }
-
-  // 获取基金净值数据
-  private getMonthNavs(month: string, fundCode: string): MonthNavs | null {
-    if (!this.loadedFundData || !this.loadedFundData.data) return null
-    
-    const fundData = this.loadedFundData.code === fundCode ? this.loadedFundData.data : null
-    if (!fundData) return null
-
-    let startNavData = fundData[month]
-    
-    if (!startNavData) {
-      const [year, monthNum] = month.split('-').map(Number)
-      let searchYear = year, searchMonth = monthNum
-      for (let i = 0; i < 12; i++) {
-        searchMonth++
-        if (searchMonth > 12) { searchMonth = 1; searchYear++ }
-        const searchKey = `${searchYear}-${searchMonth.toString().padStart(2, '0')}`
-        if (fundData[searchKey]) { startNavData = fundData[searchKey]; break }
-      }
+    const navData = fundData.data[month]
+    if (navData) {
+      return navData.growthRate
     }
-    
-    if (!startNavData) return null
 
+    // 如果当月没有数据，查找最近的有数据的月份
     const [year, monthNum] = month.split('-').map(Number)
-    let nextYear = year, nextMonth = monthNum + 1
-    if (nextMonth > 12) { nextMonth = 1; nextYear++ }
-    const nextMonthKey = `${nextYear}-${nextMonth.toString().padStart(2, '0')}`
-    
-    let endNavData = fundData[nextMonthKey]
-    
-    if (!endNavData) {
-      let searchYear = nextYear, searchMonth = nextMonth
-      for (let i = 0; i < 12; i++) {
-        searchMonth++
-        if (searchMonth > 12) { searchMonth = 1; searchYear++ }
-        const searchKey = `${searchYear}-${searchMonth.toString().padStart(2, '0')}`
-        if (fundData[searchKey]) { endNavData = fundData[searchKey]; break }
+    for (let i = 1; i <= 12; i++) {
+      let searchMonth = monthNum - i
+      let searchYear = year
+      if (searchMonth <= 0) {
+        searchMonth += 12
+        searchYear--
+      }
+      const searchKey = `${searchYear}-${searchMonth.toString().padStart(2, '0')}`
+      if (fundData.data[searchKey]) {
+        return fundData.data[searchKey].growthRate
       }
     }
 
-    if (!endNavData) endNavData = startNavData
-
-    return {
-      startNav: startNavData.startNav,
-      endNav: endNavData.endNav
-    }
+    return 1
   }
 
-  // 执行计算
-  calculate(): SimulationResult | null {
-    const months: string[] = []
-    let currentDate = new Date(this.simulationParams.startDate + '-01')
-    const endDate = new Date(this.simulationParams.endDate + '-01')
+  /**
+   * 计算指定月份的基金收益
+   */
+  private calculateFundIncomeForMonth(
+    month: string,
+    fundAssets: Map<string, number>
+  ): { totalIncome: number; updatedAssets: Map<string, number> } {
+    let totalIncome = 0
+    const updatedAssets = new Map(fundAssets)
 
+    for (const config of this.fundConfigs) {
+      if (month < config.startDate || month > config.endDate) continue
+
+      const fundCode = config.fundCode
+      const monthlyInvestment = config.investmentAmount
+      const growthRate = this.getFundGrowthRate(fundCode, month)
+
+      // 月初基金资产 + 当月定投
+      const monthStartAssets = updatedAssets.get(fundCode) || 0
+      const monthEndAssets = (monthStartAssets + monthlyInvestment) * growthRate
+
+      // 当月收益 = 月末资产 - 月初资产 - 定投金额
+      const monthIncome = monthEndAssets - monthStartAssets - monthlyInvestment
+      totalIncome += monthIncome
+
+      updatedAssets.set(fundCode, monthEndAssets)
+    }
+
+    return { totalIncome, updatedAssets }
+  }
+
+  /**
+   * 计算指定月份的存款收益
+   */
+  private calculateDepositIncomeForMonth(month: string): number {
+    let totalIncome = 0
+
+    for (const allocation of this.depositAllocations) {
+      if (month < allocation.startDate || month > allocation.endDate) continue
+
+      // 月利率 = 年利率 / 12
+      const monthlyRate = allocation.annualInterestRate / 100 / 12
+      // 当月收益 = 存款金额 * 月利率
+      const monthIncome = allocation.amount * monthlyRate
+      totalIncome += monthIncome
+    }
+
+    return totalIncome
+  }
+
+  /**
+   * 获取月份列表
+   */
+  private getMonthList(): string[] {
+    const months: string[] = []
+    const startDate = new Date(this.mockStartDate + '-01')
+    const endDate = new Date(this.mockEndDate + '-01')
+
+    let currentDate = new Date(startDate)
     while (currentDate <= endDate) {
       const year = currentDate.getFullYear()
       const month = currentDate.getMonth() + 1
@@ -211,106 +261,108 @@ export class SimulationEngine {
       currentDate.setMonth(currentDate.getMonth() + 1)
     }
 
-    let initialBalance = this.currentAccount.initialBalance
-    let fundAssets = 0
-    
+    return months
+  }
+
+  // ==================== 核心计算方法 ====================
+
+  /**
+   * 执行计算
+   */
+  calculate(): SimulationResult | null {
+    if (!this.mockStartDate || !this.mockEndDate) {
+      console.warn('模拟开始时间或结束时间未设置')
+      return null
+    }
+
+    const months = this.getMonthList()
     const monthlyData: MonthlyData[] = []
-    let maxDrawdown: MaxDrawdown = { percent: 0, amount: 0, month: '' }
-    let previousTotal = this.currentAccount.initialBalance
 
-    months.forEach((month, index) => {
-      const monthStartFundAssets = fundAssets
+    // 累计投入（初始余额）
+    let cumulativeInvestment = this.initialBalance
+    // 基金资产记录（按基金code）
+    let fundAssets = new Map<string, number>()
 
-      const income = this.getMonthlyIncome(month)
-      const expense = this.monthlyExpense + this.extraExpenses.reduce((sum, exp) => sum + exp.amount / 12, 0)
+    for (let i = 0; i < months.length; i++) {
+      const month = months[i]
 
-      let totalFundInvestment = 0
-      this.funds.forEach(fund => {
-        if (month >= fund.startDate && month <= fund.endDate) {
-          totalFundInvestment += fund.monthlyAmount
-        }
-      })
+      // 当月月收入
+      const monthlyIncome = this.getMonthlyIncomeForMonth(month)
+      // 当月额外支出
+      const monthlyExtExpense = this.getMonthlyExtExpense()
 
-      let navGrowth = 1
-      let startNav = 1
-      let endNav = 1
-      
-      if (this.funds.length > 0) {
-        const navs: Record<string, MonthNavs | null> = {}
-        this.funds.forEach(fund => {
-          const nav = this.getMonthNavs(month, fund.fundCode)
-          if (nav) navs[fund.fundCode] = nav
-        })
-
-        if (Object.keys(navs).length > 0) {
-          const firstFund = this.funds[0]
-          startNav = navs[firstFund.fundCode]?.startNav || 1
-          endNav = navs[firstFund.fundCode]?.endNav || 1
-          navGrowth = endNav / startNav
-        }
+      // 计算当月累计投入
+      if (i === 0) {
+        // 第一个月：初始余额 + 月收入 - 月支出 - 年额外支出/12
+        cumulativeInvestment = this.initialBalance + monthlyIncome - this.monthlyExpenses - monthlyExtExpense
+      } else {
+        // 后续月份：上月累计 + 月收入 - 月支出 - 年额外支出/12
+        cumulativeInvestment += monthlyIncome - this.monthlyExpenses - monthlyExtExpense
       }
-      
-      fundAssets = (monthStartFundAssets + totalFundInvestment) * navGrowth
-      const totalAssets = initialBalance + fundAssets
 
-      const monthIndex = index + 1
-      const cumulativeInvestment = this.currentAccount.initialBalance + totalFundInvestment * monthIndex
+      // 计算基金收益
+      const { totalIncome: fundIncome, updatedAssets } = this.calculateFundIncomeForMonth(month, fundAssets)
+      fundAssets = updatedAssets
 
-      const monthStartTotalAssets = initialBalance + monthStartFundAssets
-      const monthlyReturn = totalAssets - (monthStartTotalAssets + (income - expense))
+      // 计算存款收益
+      const depositIncome = this.calculateDepositIncomeForMonth(month)
 
-      const totalFundAssets = fundAssets
-      const currentBalance = initialBalance
-
-      if (totalAssets < previousTotal) {
-        const drawdownAmount = previousTotal - totalAssets
-        const drawdownPercent = (drawdownAmount / previousTotal) * 100
-        if (drawdownPercent > maxDrawdown.percent) {
-          maxDrawdown = { percent: drawdownPercent, amount: drawdownAmount, month }
-        }
-      }
-      previousTotal = Math.max(previousTotal, totalAssets)
+      // 总资产 = 累计投入 + 基金收益 + 存款收益
+      const totalAssets = cumulativeInvestment + fundIncome + depositIncome
 
       monthlyData.push({
         month,
+        cumulativeInvestment,
         totalAssets,
-        totalInvestment: cumulativeInvestment,
-        fundAssets: totalFundAssets,
-        currentBalance,
-        monthlyReturn,
-        monthStartTotalAssets,
-        income,
-        startNav,
-        endNav,
-        navGrowth
+        fundIncome,
+        depositIncome
       })
-    })
+    }
 
-    const finalAssets = monthlyData[monthlyData.length - 1]?.totalAssets || 0
-    const finalTotalInvestment = monthlyData[monthlyData.length - 1]?.totalInvestment || this.currentAccount.initialBalance
-    const totalReturnAmount = finalAssets - finalTotalInvestment
-    const totalReturnPercent = finalTotalInvestment > 0 ? (totalReturnAmount / finalTotalInvestment) * 100 : 0
+    // 计算总收益
+    const firstMonth = monthlyData[0]
+    const lastMonth = monthlyData[monthlyData.length - 1]
+    const totalInvestment = lastMonth.cumulativeInvestment
+    const finalAssets = lastMonth.totalAssets
+    const totalReturnAmount = finalAssets - totalInvestment
+    const totalReturnPercent = totalInvestment > 0 ? (totalReturnAmount / totalInvestment) * 100 : 0
+
+    // 计算最大回撤
+    let maxDrawdownAmount = 0
+    let maxDrawdownPercent = 0
+    let maxDrawdownMonth = ''
+    let peak = finalAssets
+
+    for (let i = monthlyData.length - 1; i >= 0; i--) {
+      const data = monthlyData[i]
+      if (data.totalAssets > peak) {
+        peak = data.totalAssets
+      }
+      const drawdown = peak - data.totalAssets
+      const drawdownPercent = peak > 0 ? (drawdown / peak) * 100 : 0
+      if (drawdown > maxDrawdownAmount) {
+        maxDrawdownAmount = drawdown
+        maxDrawdownPercent = drawdownPercent
+        maxDrawdownMonth = data.month
+      }
+    }
 
     this.simulationResult = {
       monthlyData,
-      totalReturn: { amount: totalReturnAmount, percent: totalReturnPercent },
-      maxDrawdown
+      totalReturn: {
+        amount: totalReturnAmount,
+        percent: totalReturnPercent
+      },
+      maxDrawdown: {
+        amount: maxDrawdownAmount,
+        percent: maxDrawdownPercent,
+        month: maxDrawdownMonth
+      }
     }
-
-    this.onResultChange?.(this.simulationResult)
+    this.notifyListeners('resultChange', this.simulationResult)
     return this.simulationResult
   }
-
-  // 平移到未来
-  shiftToFuture(shiftYears: number): SimulationResult | null {
-    if (!this.simulationResult) return null
-    
-    const shiftedData = this.simulationResult.monthlyData.map(item => {
-      const [year, month] = item.month.split('-')
-      const newYear = parseInt(year) + shiftYears
-      return { ...item, month: `${newYear}-${month}` }
-    })
-    
-    return { ...this.simulationResult, monthlyData: shiftedData }
-  }
 }
+
+// 导出单例实例
+export const simulationEngine = new SimulationEngine()

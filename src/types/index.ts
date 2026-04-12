@@ -20,77 +20,55 @@ export interface LoadedFundData {
   data: Record<string, FundNavData>
 }
 
-// 收入段类型
-export interface IncomeSegment {
-  id: number
-  monthlyIncome: number
-  startDate: string
-  endDate: string
-}
-
-// 额外支出类型
-export interface ExtraExpense {
-  id: number
-  amount: number
-}
-
 // 基金配置类型
-export interface Fund {
-  id: number
+export interface FundConfig {
   fundCode: string
-  monthlyAmount: number
+  investmentAmount: number
   startDate: string
   endDate: string
 }
 
-// 存款类型
-export interface Deposit {
-  id: number
+// 月收入类型
+export interface MonthlyIncome {
+  income: number
+  startDate: string
+  endDate: string
+}
+
+// 存款配置类型
+export interface DepositAllocation {
   amount: number
-  date: string
-  annualRate: number
-  term: number
-}
-
-// 活期账户类型
-export interface CurrentAccount {
-  initialBalance: number
-  annualRate: number
-}
-
-// 模拟参数类型
-export interface SimulationParams {
   startDate: string
   endDate: string
-  shiftYears: number
+  annualInterestRate: number
 }
 
 // 月度数据类型
 export interface MonthlyData {
   month: string
+  cumulativeInvestment: number
   totalAssets: number
-  totalInvestment: number
-  fundAssets: number
-  currentBalance: number
-  monthlyReturn: number
-  monthStartTotalAssets: number
-  income: number
-  startNav: number
-  endNav: number
-  navGrowth: number
+  fundIncome: number
+  depositIncome: number
+  // 兼容旧代码的字段
+  totalInvestment?: number
+  currentBalance?: number
+  startNav?: number
+  endNav?: number
+  navGrowth?: number
+}
+
+// 收益返回类型
+export interface TotalReturn {
+  amount: number
+  percent: number
 }
 
 // 最大回撤类型
 export interface MaxDrawdown {
-  percent: number
   amount: number
+  percent: number
   month: string
-}
-
-// 总收益类型
-export interface TotalReturn {
-  amount: number
-  percent: number
 }
 
 // 模拟结果类型
@@ -100,14 +78,64 @@ export interface SimulationResult {
   maxDrawdown: MaxDrawdown
 }
 
-// 可用基金类型
+// 可用基金类型（下拉框用）
 export interface AvailableFund {
   code: string
   name: string
   type: string
 }
 
-// 月份净值类型
+// 旧的类型（为了兼容，暂时保留）
+export interface IncomeSegment {
+  id: number
+  monthlyIncome: number
+  startDate: string
+  endDate: string
+}
+
+export interface ExtraExpense {
+  id: number
+  amount: number
+}
+
+export interface Fund {
+  id: number
+  fundCode: string
+  monthlyAmount: number
+  startDate: string
+  endDate: string
+}
+
+export interface Deposit {
+  id: number
+  amount: number
+  date: string
+  annualRate: number
+  term: number
+}
+
+export interface CurrentAccount {
+  initialBalance: number
+  annualRate: number
+}
+
+export interface SimulationParams {
+  startDate: string
+  endDate: string
+  shiftYears: number
+}
+
+export interface MaxDrawdown {
+  percent: number
+  amount: number
+  month: string
+}
+
+export interface TotalReturn {
+  amount: number
+  percent: number
+}
+
 export interface MonthNavs {
   startNav: number
   endNav: number

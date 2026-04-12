@@ -2,12 +2,9 @@ import { useMemo, useState, useEffect } from 'react'
 import { fundDataLoader } from '../services/FundDataLoader'
 import type {
   LoadedFundData,
-  SimulationParams,
-  IncomeSegment,
-  ExtraExpense,
-  Fund,
-  Deposit,
-  CurrentAccount,
+  FundConfig,
+  MonthlyIncome,
+  DepositAllocation,
   AvailableFund
 } from '../types'
 
@@ -18,31 +15,22 @@ interface InputSectionProps {
   fundLoading: boolean
   fundError: string | null
   loadFundData: () => void
-  // Simulation params
-  simulationParams: SimulationParams
-  setSimulationParams: (params: SimulationParams) => void
-  // Income
-  incomeSegments: IncomeSegment[]
-  setIncomeSegments: (segments: IncomeSegment[]) => void
-  addIncomeSegment: () => void
-  // Expense
-  monthlyExpense: number
-  setMonthlyExpense: (value: number) => void
-  // Extra expenses
-  extraExpenses: ExtraExpense[]
-  setExtraExpenses: (expenses: ExtraExpense[]) => void
-  addExtraExpense: () => void
-  // Funds
-  funds: Fund[]
-  setFunds: (funds: Fund[]) => void
-  addFund: () => void
-  // Deposits
-  deposits: Deposit[]
-  setDeposits: (deposits: Deposit[]) => void
-  addDeposit: () => void
-  // Current account
-  currentAccount: CurrentAccount
-  setCurrentAccount: (account: CurrentAccount) => void
+  // Simulation data
+  fundConfigs: FundConfig[]
+  setFundConfigs: (configs: FundConfig[]) => void
+  monthlyIncomes: MonthlyIncome[]
+  setMonthlyIncomes: (incomes: MonthlyIncome[]) => void
+  monthlyExpenses: number
+  setMonthlyExpenses: (value: number) => void
+  yearExtExpenses: number[]
+  setYearExtExpenses: (expenses: number[]) => void
+  depositAllocations: DepositAllocation[]
+  setDepositAllocations: (allocations: DepositAllocation[]) => void
+  initialBalance: number
+  setInitialBalance: (value: number) => void
+  mockStartDate: string
+  mockEndDate: string
+  setMockDateRange: (startDate: string, endDate: string) => void
   // Calculation
   onCalculate: () => void
 }
@@ -50,20 +38,14 @@ interface InputSectionProps {
 export function InputSection({
   // Fund data
   fundCodeInput, setFundCodeInput, fundLoading, fundError, loadFundData,
-  // Simulation params
-  simulationParams, setSimulationParams,
-  // Income
-  incomeSegments, setIncomeSegments, addIncomeSegment,
-  // Expense
-  monthlyExpense, setMonthlyExpense,
-  // Extra expenses
-  extraExpenses, setExtraExpenses, addExtraExpense,
-  // Funds
-  funds, setFunds, addFund,
-  // Deposits
-  deposits, setDeposits, addDeposit,
-  // Current account
-  currentAccount, setCurrentAccount,
+  // Simulation data
+  fundConfigs, setFundConfigs,
+  monthlyIncomes, setMonthlyIncomes,
+  monthlyExpenses, setMonthlyExpenses,
+  yearExtExpenses, setYearExtExpenses,
+  depositAllocations, setDepositAllocations,
+  initialBalance, setInitialBalance,
+  mockStartDate, mockEndDate, setMockDateRange,
   // Calculation
   onCalculate
 }: InputSectionProps) {
@@ -71,16 +53,14 @@ export function InputSection({
   const [allLoadedFunds, setAllLoadedFunds] = useState<LoadedFundData[]>(fundDataLoader.getAllLoadedFunds())
 
   useEffect(() => {
-    // 订阅 FundDataLoader 的数据变化
     const unsubscribe = fundDataLoader.subscribe('allFundsLoaded', (funds) => {
-      setAllLoadedFunds([...funds])
+      setAllLoadedFunds([...(funds as LoadedFundData[])])
     })
     return unsubscribe
   }, [])
 
-  // 合并内置基金和已加载的基金
+  // 可用基金列表
   const availableFunds = useMemo<AvailableFund[]>(() => {
-    // 使用所有已加载的基金
     return allLoadedFunds.map((fund: LoadedFundData) => ({
       code: fund.code,
       name: fund.name,
@@ -88,11 +68,81 @@ export function InputSection({
     }))
   }, [allLoadedFunds])
 
+  // 添加基金配置
+  const addFundConfig = () => {
+    const newConfig: FundConfig = {
+      fundCode: availableFunds[0]?.code || '',
+      investmentAmount: 5000,
+      startDate: mockStartDate,
+      endDate: mockEndDate
+    }
+    setFundConfigs([...fundConfigs, newConfig])
+  }
+
+  // 更新基金配置
+  const updateFundConfig = (index: number, field: keyof FundConfig, value: string | number) => {
+    const newConfigs = [...fundConfigs]
+    newConfigs[index] = { ...newConfigs[index], [field]: value }
+    setFundConfigs(newConfigs)
+  }
+
+  // 删除基金配置
+  const removeFundConfig = (index: number) => {
+    setFundConfigs(fundConfigs.filter((_, i) => i !== index))
+  }
+
+  // 添加月收入
+  const addMonthlyIncome = () => {
+    const newIncome: MonthlyIncome = {
+      income: 10000,
+      startDate: mockStartDate,
+      endDate: mockEndDate
+    }
+    setMonthlyIncomes([...monthlyIncomes, newIncome])
+  }
+
+  // 更新月收入
+  const updateMonthlyIncome = (index: number, field: keyof MonthlyIncome, value: string | number) => {
+    const newIncomes = [...monthlyIncomes]
+    newIncomes[index] = { ...newIncomes[index], [field]: value }
+    setMonthlyIncomes(newIncomes)
+  }
+
+  // 删除月收入
+  const removeMonthlyIncome = (index: number) => {
+    setMonthlyIncomes(monthlyIncomes.filter((_, i) => i !== index))
+  }
+
+  // 添加存款配置
+  const addDepositAllocation = () => {
+    const newAllocation: DepositAllocation = {
+      amount: 10000,
+      startDate: mockStartDate,
+      endDate: mockEndDate,
+      annualInterestRate: 2.5
+    }
+    setDepositAllocations([...depositAllocations, newAllocation])
+  }
+
+  // 更新存款配置
+  const updateDepositAllocation = (index: number, field: keyof DepositAllocation, value: string | number) => {
+    const newAllocations = [...depositAllocations]
+    newAllocations[index] = { ...newAllocations[index], [field]: value }
+    setDepositAllocations(newAllocations)
+  }
+
+  // 删除存款配置
+  const removeDepositAllocation = (index: number) => {
+    setDepositAllocations(depositAllocations.filter((_, i) => i !== index))
+  }
+
   return (
     <div className="input-section">
       {/* 模拟参数 */}
       <div className="section">
         <h2>模拟参数</h2>
+        
+        {/* 基金代码加载 */}
         <div className="form-group">
           <label>基金代码</label>
           <div style={{ display: 'flex', gap: '0.5rem' }}>
@@ -109,10 +159,9 @@ export function InputSection({
               style={{
                 padding: '0.5rem 1rem',
                 borderRadius: '6px',
-                border: '1px solid #646cff',
-                background: fundLoading ? '#ccc' : '#646cff',
+                border: 'none',
+                background: fundLoading ? '#ccc' : '#4caf50',
                 color: 'white',
-                fontSize: '0.9em',
                 cursor: fundLoading ? 'not-allowed' : 'pointer'
               }}
             >
@@ -123,106 +172,73 @@ export function InputSection({
           {allLoadedFunds.length > 0 && <p style={{ color: '#4caf50', fontSize: '0.8em', marginTop: '0.25rem' }}>已加载 {allLoadedFunds.length} 个基金</p>}
         </div>
 
+        {/* 时间范围 */}
         <div className="form-group">
           <label>模拟开始日期</label>
           <input
-            type="date"
-            value={simulationParams.startDate + '-01'}
-            onChange={(e) => {
-              const dateValue = e.target.value
-              const yearMonth = dateValue.substring(0, 7)
-              setSimulationParams({ ...simulationParams, startDate: yearMonth })
-            }}
-            style={{
-              fontSize: '16px',
-              minHeight: '44px',
-              padding: '0.5rem',
-              borderRadius: '8px',
-              border: '1px solid #ccc',
-              width: '100%',
-              WebkitAppearance: 'none'
-            }}
+            type="month"
+            value={mockStartDate}
+            onChange={(e) => setMockDateRange(e.target.value, mockEndDate)}
           />
         </div>
+
         <div className="form-group">
           <label>模拟结束日期</label>
           <input
-            type="date"
-            value={simulationParams.endDate + '-01'}
-            onChange={(e) => {
-              const dateValue = e.target.value
-              const yearMonth = dateValue.substring(0, 7)
-              setSimulationParams({ ...simulationParams, endDate: yearMonth })
-            }}
-            style={{
-              fontSize: '16px',
-              minHeight: '44px',
-              padding: '0.5rem',
-              borderRadius: '8px',
-              border: '1px solid #ccc',
-              width: '100%',
-              WebkitAppearance: 'none'
-            }}
+            type="month"
+            value={mockEndDate}
+            onChange={(e) => setMockDateRange(mockStartDate, e.target.value)}
           />
         </div>
+
+        {/* 初始余额 */}
         <div className="form-group">
-          <label>推移年份</label>
+          <label>初始余额</label>
           <input
             type="number"
-            value={simulationParams.shiftYears}
-            onChange={(e) => setSimulationParams({ ...simulationParams, shiftYears: parseInt(e.target.value) || 0 })}
-            min="0"
+            value={initialBalance}
+            onChange={(e) => setInitialBalance(Number(e.target.value))}
+            min={0}
+            step={1000}
           />
         </div>
       </div>
 
-      {/* 收入配置 */}
+      {/* 月收入配置 */}
       <div className="section">
-        <h2>收入配置</h2>
-        {incomeSegments.map(segment => (
-          <div key={segment.id} className="sub-section">
+        <h2>月收入配置</h2>
+        {monthlyIncomes.map((income, index) => (
+          <div key={index} className="config-item" style={{ marginBottom: '1rem', padding: '0.5rem', border: '1px solid #e0e0e0', borderRadius: '4px' }}>
             <div className="form-group">
               <label>月收入</label>
               <input
                 type="number"
-                value={segment.monthlyIncome}
-                onChange={(e) => {
-                  const newSegments = incomeSegments.map(s =>
-                    s.id === segment.id ? { ...s, monthlyIncome: parseFloat(e.target.value) || 0 } : s
-                  )
-                  setIncomeSegments(newSegments)
-                }}
+                value={income.income}
+                onChange={(e) => updateMonthlyIncome(index, 'income', Number(e.target.value))}
+                min={0}
+                step={1000}
               />
             </div>
             <div className="form-group">
-              <label>生效开始日期</label>
+              <label>开始时间</label>
               <input
                 type="month"
-                value={segment.startDate}
-                onChange={(e) => {
-                  const newSegments = incomeSegments.map(s =>
-                    s.id === segment.id ? { ...s, startDate: e.target.value } : s
-                  )
-                  setIncomeSegments(newSegments)
-                }}
+                value={income.startDate}
+                onChange={(e) => updateMonthlyIncome(index, 'startDate', e.target.value)}
               />
             </div>
             <div className="form-group">
-              <label>生效结束日期</label>
+              <label>结束时间</label>
               <input
                 type="month"
-                value={segment.endDate}
-                onChange={(e) => {
-                  const newSegments = incomeSegments.map(s =>
-                    s.id === segment.id ? { ...s, endDate: e.target.value } : s
-                  )
-                  setIncomeSegments(newSegments)
-                }}
+                value={income.endDate}
+                onChange={(e) => updateMonthlyIncome(index, 'endDate', e.target.value)}
               />
             </div>
+            <button onClick={() => removeMonthlyIncome(index)} style={{ color: '#ff5722' }}>删除</button>
           </div>
         ))}
-        <button className="add-button" onClick={addIncomeSegment}>+ 添加收入段</button>
+        <button onClick={addMonthlyIncome}>+ 添加月收入</button>
       </div>
 
       {/* 支出配置 */}
@@ -232,216 +248,128 @@ export function InputSection({
           <label>月支出</label>
           <input
             type="number"
-            value={monthlyExpense}
-            onChange={(e) => setMonthlyExpense(parseFloat(e.target.value) || 0)}
+            value={monthlyExpenses}
+            onChange={(e) => setMonthlyExpenses(Number(e.target.value))}
+            min={0}
+            step={1000}
           />
         </div>
-        <h3>年额外支出</h3>
-        {extraExpenses.map(expense => (
-          <div key={expense.id} className="sub-section">
-            <div className="form-group">
-              <label>金额</label>
-              <input
-                type="number"
-                value={expense.amount}
-                onChange={(e) => {
-                  const newExpenses = extraExpenses.map(item =>
-                    item.id === expense.id ? { ...item, amount: parseFloat(e.target.value) || 0 } : item
-                  )
-                  setExtraExpenses(newExpenses)
-                }}
-              />
-            </div>
-          </div>
-        ))}
-        <button className="add-button" onClick={addExtraExpense}>+ 添加额外支出</button>
       </div>
 
       {/* 基金配置 */}
       <div className="section">
         <h2>基金配置</h2>
-        {funds.map(fund => (
-          <div key={fund.id} className="sub-section">
+        {fundConfigs.map((config, index) => (
+          <div key={index} className="config-item" style={{ marginBottom: '1rem', padding: '0.5rem', border: '1px solid #e0e0e0', borderRadius: '4px' }}>
             <div className="form-group">
               <label>基金名称</label>
               <select
-                value={fund.fundCode}
-                onChange={(e) => {
-                  const newFunds = funds.map(f =>
-                    f.id === fund.id ? { ...f, fundCode: e.target.value } : f
-                  )
-                  console.log('newFunds', newFunds)
-                  setFunds(newFunds)
-                }}
+                value={config.fundCode}
+                onChange={(e) => updateFundConfig(index, 'fundCode', e.target.value)}
               >
-                {availableFunds.length === 0 ? (
-                  <option value="">请先加载基金</option>
-                ) : (
-                  availableFunds.map(f => (
-                    <option key={f.code} value={f.code}>{f.name}</option>
-                  ))
-                )}
+                {availableFunds.map(fund => (
+                  <option key={fund.code} value={fund.code}>{fund.name} ({fund.code})</option>
+                ))}
               </select>
             </div>
             <div className="form-group">
               <label>每月定投金额</label>
               <input
                 type="number"
-                value={fund.monthlyAmount}
-                onChange={(e) => {
-                  const newFunds = funds.map(f =>
-                    f.id === fund.id ? { ...f, monthlyAmount: parseFloat(e.target.value) || 0 } : f
-                  )
-                  setFunds(newFunds)
-                }}
+                value={config.investmentAmount}
+                onChange={(e) => updateFundConfig(index, 'investmentAmount', Number(e.target.value))}
+                min={0}
+                step={1000}
               />
             </div>
             <div className="form-group">
-              <label>定投开始日期</label>
+              <label>开始时间</label>
               <input
                 type="month"
-                value={fund.startDate}
-                onChange={(e) => {
-                  const newFunds = funds.map(f =>
-                    f.id === fund.id ? { ...f, startDate: e.target.value } : f
-                  )
-                  setFunds(newFunds)
-                }}
+                value={config.startDate}
+                onChange={(e) => updateFundConfig(index, 'startDate', e.target.value)}
               />
             </div>
             <div className="form-group">
-              <label>定投结束日期</label>
+              <label>结束时间</label>
               <input
                 type="month"
-                value={fund.endDate}
-                onChange={(e) => {
-                  const newFunds = funds.map(f =>
-                    f.id === fund.id ? { ...f, endDate: e.target.value } : f
-                  )
-                  setFunds(newFunds)
-                }}
+                value={config.endDate}
+                onChange={(e) => updateFundConfig(index, 'endDate', e.target.value)}
               />
             </div>
+            <button onClick={() => removeFundConfig(index)} style={{ color: '#ff5722' }}>删除</button>
           </div>
         ))}
-        <button className="add-button" onClick={addFund}>+ 添加基金</button>
+        <button onClick={addFundConfig} disabled={availableFunds.length === 0}>
+          + 添加基金配置
+        </button>
       </div>
 
       {/* 存款配置 */}
       <div className="section">
         <h2>存款配置</h2>
-        {deposits.map(deposit => (
-          <div key={deposit.id} className="sub-section">
+        {depositAllocations.map((allocation, index) => (
+          <div key={index} className="config-item" style={{ marginBottom: '1rem', padding: '0.5rem', border: '1px solid #e0e0e0', borderRadius: '4px' }}>
             <div className="form-group">
               <label>存款金额</label>
               <input
                 type="number"
-                value={deposit.amount}
-                onChange={(e) => {
-                  const newDeposits = deposits.map(d =>
-                    d.id === deposit.id ? { ...d, amount: parseFloat(e.target.value) || 0 } : d
-                  )
-                  setDeposits(newDeposits)
-                }}
+                value={allocation.amount}
+                onChange={(e) => updateDepositAllocation(index, 'amount', Number(e.target.value))}
+                min={0}
+                step={1000}
               />
             </div>
             <div className="form-group">
-              <label>存入日期</label>
+              <label>年利率 (%)</label>
+              <input
+                type="number"
+                value={allocation.annualInterestRate}
+                onChange={(e) => updateDepositAllocation(index, 'annualInterestRate', Number(e.target.value))}
+                min={0}
+                step={0.1}
+              />
+            </div>
+            <div className="form-group">
+              <label>开始时间</label>
               <input
                 type="month"
-                value={deposit.date}
-                onChange={(e) => {
-                  const newDeposits = deposits.map(d =>
-                    d.id === deposit.id ? { ...d, date: e.target.value } : d
-                  )
-                  setDeposits(newDeposits)
-                }}
+                value={allocation.startDate}
+                onChange={(e) => updateDepositAllocation(index, 'startDate', e.target.value)}
               />
             </div>
             <div className="form-group">
-              <label>年利率(%)</label>
+              <label>结束时间</label>
               <input
-                type="number"
-                value={deposit.annualRate}
-                onChange={(e) => {
-                  const newDeposits = deposits.map(d =>
-                    d.id === deposit.id ? { ...d, annualRate: parseFloat(e.target.value) || 0 } : d
-                  )
-                  setDeposits(newDeposits)
-                }}
+                type="month"
+                value={allocation.endDate}
+                onChange={(e) => updateDepositAllocation(index, 'endDate', e.target.value)}
               />
             </div>
-            <div className="form-group">
-              <label>期限(月)</label>
-              <input
-                type="number"
-                value={deposit.term}
-                onChange={(e) => {
-                  const newDeposits = deposits.map(d =>
-                    d.id === deposit.id ? { ...d, term: parseInt(e.target.value) || 0 } : d
-                  )
-                  setDeposits(newDeposits)
-                }}
-              />
-            </div>
+            <button onClick={() => removeDepositAllocation(index)} style={{ color: '#ff5722' }}>删除</button>
           </div>
         ))}
-        <button className="add-button" onClick={addDeposit}>+ 添加存款</button>
-      </div>
-
-      {/* 活期配置 */}
-      <div className="section">
-        <h2>活期配置</h2>
-        <div className="form-group">
-          <label>初始余额</label>
-          <input
-            type="number"
-            value={currentAccount.initialBalance}
-            onChange={(e) => setCurrentAccount({ ...currentAccount, initialBalance: parseFloat(e.target.value) || 0 })}
-          />
-        </div>
-        <div className="form-group">
-          <label>年利率(%)</label>
-          <input
-            type="number"
-            value={currentAccount.annualRate}
-            onChange={(e) => setCurrentAccount({ ...currentAccount, annualRate: parseFloat(e.target.value) || 0 })}
-          />
-        </div>
+        <button onClick={addDepositAllocation}>+ 添加存款配置</button>
       </div>
 
       {/* 计算按钮 */}
-      <div className="section" style={{ textAlign: 'center', padding: '2rem', background: '#f0f7ff', borderRadius: '12px', marginTop: '1rem' }}>
-        <button
+      <div className="section">
+        <button 
           onClick={onCalculate}
           style={{
-            padding: '1rem 3rem',
-            fontSize: '1.2rem',
-            fontWeight: 'bold',
-            background: '#646cff',
+            width: '100%',
+            padding: '1rem',
+            fontSize: '1.1rem',
+            background: '#2196f3',
             color: 'white',
             border: 'none',
-            borderRadius: '8px',
-            cursor: 'pointer',
-            boxShadow: '0 4px 12px rgba(100, 108, 255, 0.3)',
-            transition: 'all 0.3s ease'
-          }}
-          onMouseEnter={(e) => {
-            e.currentTarget.style.background = '#535bf2'
-            e.currentTarget.style.transform = 'translateY(-2px)'
-            e.currentTarget.style.boxShadow = '0 6px 16px rgba(100, 108, 255, 0.4)'
-          }}
-          onMouseLeave={(e) => {
-            e.currentTarget.style.background = '#646cff'
-            e.currentTarget.style.transform = 'translateY(0)'
-            e.currentTarget.style.boxShadow = '0 4px 12px rgba(100, 108, 255, 0.3)'
+            borderRadius: '6px',
+            cursor: 'pointer'
           }}
         >
           开始计算
         </button>
-        <p style={{ marginTop: '0.75rem', color: '#666', fontSize: '0.9rem' }}>
-          配置完成后点击计算按钮查看结果
-        </p>
       </div>
     </div>
   )
