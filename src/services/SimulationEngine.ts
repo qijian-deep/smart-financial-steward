@@ -16,14 +16,22 @@ type EventDataMap = {
 }
 
 class SimulationEngine {
-  // 属性
+  // 属性定义
+  // 基金配置
   private fundConfigs: FundConfig[] = []
+  // 月收入
   private monthlyIncomes: MonthlyIncome[] = []
+  // 月支出
   private monthlyExpenses: number = 0
+  // 年扩展支出
   private yearExtExpenses: number[] = []
+  // 存款配置
   private depositAllocations: DepositAllocation[] = []
+  // 初始资产金额
   private initialBalance: number = 0
+  // 模拟开始日期
   private mockStartDate: string = ''
+  // 模拟结束日期
   private mockEndDate: string = ''
 
   // 模拟结果

@@ -22,10 +22,10 @@ export interface LoadedFundData {
 
 // 基金配置类型
 export interface FundConfig {
-  fundCode: string
-  investmentAmount: number
-  startDate: string
-  endDate: string
+  fundCode: string // 基金代码
+  investmentAmount: number // 每月投资金额
+  startDate: string // 开始日期
+  endDate: string // 结束日期
 }
 
 // 月收入类型
@@ -37,42 +37,46 @@ export interface MonthlyIncome {
 
 // 存款配置类型
 export interface DepositAllocation {
-  amount: number
-  startDate: string
-  endDate: string
-  annualInterestRate: number
+  amount: number // 存款金额
+  startDate: string // 开始日期
+  endDate: string // 结束日期
+  annualInterestRate: number // 年利率
 }
 
 // 基金月度数据
 export interface FundMonthlyData {
-  fundCode: string
-  fundName: string
-  startAssets: number
-  endAssets: number
-  growthRate: number
-  growthAmount: number
-  investmentAmount: number
+  fundCode: string // 基金代码
+  fundName: string // 基金名称
+  startAssets: number // 开始资产金额
+  endAssets: number // 结束资产金额
+  growthRate: number // 增长率
+  growthAmount: number // 增长金额
+  investmentAmount: number // 投资金额
 }
 
 // 月度数据类型
 export interface MonthlyData {
+  // 月份
   month: string
+  // 累计投资金额
   cumulativeInvestment: number
+  // 总资产
   totalAssets: number
+  // 基金收益
   fundIncome: number
+  // 存款收益
   depositIncome: number
   // 资产增长数据
+  // 开始资产金额
   startAssets: number
+  // 结束资产金额
   endAssets: number
+  // 增长率
   growthRate: number
+  // 增长金额
   growthAmount: number
+  // 基金月度数据详情
   fundDetails: FundMonthlyData[]
-  // 兼容旧代码的字段
-  totalInvestment?: number
-  currentBalance?: number
-  startNav?: number
-  endNav?: number
-  navGrowth?: number
 }
 
 // 收益返回类型
@@ -90,8 +94,11 @@ export interface MaxDrawdown {
 
 // 模拟结果类型
 export interface SimulationResult {
+  // 月度数据
   monthlyData: MonthlyData[]
+  // 总资产
   totalReturn: TotalReturn
+  // 最大回撤
   maxDrawdown: MaxDrawdown
 }
 

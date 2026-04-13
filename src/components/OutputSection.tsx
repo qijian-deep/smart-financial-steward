@@ -45,7 +45,8 @@ export function OutputSection({
   }, [chartData, simulationResult, activeView, simulationParams.shiftYears])
 
   const hasNegativeBalance = useMemo<boolean>(() => {
-    return simulationResult?.monthlyData?.some(item => (item.currentBalance || 0) < 0) || false
+    // 检查是否有负增长（资产减少）
+    return simulationResult?.monthlyData?.some(item => item.growthAmount < 0) || false
   }, [simulationResult])
 
   return (
