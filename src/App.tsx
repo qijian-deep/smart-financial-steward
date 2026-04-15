@@ -18,18 +18,18 @@ function App() {
 
   // 模拟参数状态
   const [simulationParams, setSimulationParams] = useState<SimulationParams>({
-    startDate: '2015-01',
-    endDate: '2015-03',
+    startDate: '2016-03',
+    endDate: '2026-03',
     shiftYears: 10
   })
 
   // 初始化
   useEffect(() => {
     // 初始化 simulationEngine 的默认日期
-    simulationEngine.setMockStartDate('2015-01')
-    simulationEngine.setMockEndDate('2015-03')
+    simulationEngine.setMockStartDate('2016-03')
+    simulationEngine.setMockEndDate('2026-03')
     // 初始化默认月收入
-    simulationEngine.setMonthlyIncomes([{ income: 10000, startDate: '2015-01', endDate: '2015-03' }])
+    simulationEngine.setMonthlyIncomes([{ income: 10000, startDate: '2016-03', endDate: '2026-03' }])
     // 初始化默认月支出
     simulationEngine.setMonthlyExpenses(5000)
     // 初始化默认初始余额
@@ -45,8 +45,8 @@ function App() {
       const funds = fundDataLoader.getAllLoadedFunds()
       // 自动添加基金配置（如果没有的话）
       if (funds.length > 0 && simulationEngine.getFundConfigs().length === 0) {
-        const startDate = simulationEngine.getMockStartDate() || '2015-01'
-        const endDate = simulationEngine.getMockEndDate() || '2015-03'
+        const startDate = simulationEngine.getMockStartDate() || '2016-03'
+        const endDate = simulationEngine.getMockEndDate() || '2026-03'
         simulationEngine.setFundConfigs([{
           fundCode: funds[0].code,
           investmentAmount: 5000,
@@ -183,13 +183,13 @@ function App() {
   // 默认数据
   const defaultData = {
     fundConfigs: [] as FundConfig[],
-    monthlyIncomes: [{ income: 10000, startDate: '2015-01', endDate: '2015-03' }] as MonthlyIncome[],
+    monthlyIncomes: [{ income: 10000, startDate: '2016-03', endDate: '2026-03' }] as MonthlyIncome[],
     monthlyExpenses: 5000,
     yearExtExpenses: [] as number[],
     depositAllocations: [] as DepositAllocation[],
     initialBalance: 10000,
-    mockStartDate: '2015-01',
-    mockEndDate: '2015-03'
+    mockStartDate: '2016-03',
+    mockEndDate: '2026-03'
   }
 
   const renderData = {
@@ -198,7 +198,7 @@ function App() {
     monthlyExpenses: data.monthlyExpenses || defaultData.monthlyExpenses,
     yearExtExpenses: data.yearExtExpenses.length > 0 ? data.yearExtExpenses : defaultData.yearExtExpenses,
     depositAllocations: data.depositAllocations.length > 0 ? data.depositAllocations : defaultData.depositAllocations,
-    initialBalance: data.initialBalance || defaultData.initialBalance,
+    initialBalance: data.initialBalance,
     mockStartDate: data.mockStartDate || defaultData.mockStartDate,
     mockEndDate: data.mockEndDate || defaultData.mockEndDate
   }

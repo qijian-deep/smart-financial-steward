@@ -195,11 +195,22 @@ export function InputSection({
         <div className="form-group">
           <label>初始余额</label>
           <input
-            type="number"
+            type="text"
+            inputMode="numeric"
             value={initialBalance}
-            onChange={(e) => setInitialBalance(Number(e.target.value))}
-            min={0}
-            step={1000}
+            onChange={(e) => {
+              const value = e.target.value
+              // 允许空值或数字
+              if (value === '' || /^\d*$/.test(value)) {
+                setInitialBalance(value === '' ? 0 : Number(value))
+              }
+            }}
+            onBlur={(e) => {
+              // 失去焦点时，如果为空则设为0
+              if (e.target.value === '') {
+                setInitialBalance(0)
+              }
+            }}
           />
         </div>
       </div>

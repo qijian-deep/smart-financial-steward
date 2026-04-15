@@ -225,8 +225,8 @@ class SimulationEngine {
       const monthStartAssets = updatedAssets.get(fundCode) || 0
       const monthEndAssets = (monthStartAssets + monthlyInvestment) * growthRate
 
-      // 当月收益 = 月末资产 - 月初资产 - 定投金额
-      const monthIncome = monthEndAssets - monthStartAssets - monthlyInvestment
+      // 当月收益 = 月末资产 - 月初资产（即基金增长额，包含定投的增长）
+      const monthIncome = monthEndAssets - monthStartAssets
       totalIncome += monthIncome
 
       updatedAssets.set(fundCode, monthEndAssets)
@@ -235,9 +235,6 @@ class SimulationEngine {
       const fundData = fundDataLoader.getFundDataByCode(fundCode)
       const fundName = fundData?.name || fundCode
 
-      // 计算基金增长金额
-      const fundGrowthAmount = monthEndAssets - monthStartAssets
-
       // 保存基金详情
       fundDetails.push({
         fundCode,
@@ -245,7 +242,7 @@ class SimulationEngine {
         startAssets: monthStartAssets,
         endAssets: monthEndAssets,
         growthRate,
-        growthAmount: fundGrowthAmount,
+        growthAmount: monthIncome,
         investmentAmount: monthlyInvestment
       })
     }
@@ -309,6 +306,8 @@ class SimulationEngine {
     let cumulativeInvestment = this.initialBalance
     // 基金资产记录（按基金code）
     let fundAssets = new Map<string, number>()
+    // 累计定投金额
+    let totalFundInvestment = 0
     // 上月总资产
     let lastMonthTotalAssets = this.initialBalance
 
@@ -329,18 +328,31 @@ class SimulationEngine {
         cumulativeInvestment += monthlyIncome - this.monthlyExpenses - monthlyExtExpense
       }
 
+      // 计算当月定投金额
+      const monthFundInvestment = this.fundConfigs
+        .filter(config => month >= config.startDate && month <= config.endDate)
+        .reduce((sum, config) => sum + config.investmentAmount, 0)
+      totalFundInvestment += monthFundInvestment
+
       // 月初资产 = 上月总资产 + 本月新投入
       const startAssets = lastMonthTotalAssets + (i === 0 ? cumulativeInvestment - this.initialBalance : monthlyIncome - this.monthlyExpenses - monthlyExtExpense)
 
-      // 计算基金收益
-      const { totalIncome: fundIncome, updatedAssets, fundDetails } = this.calculateFundIncomeForMonth(month, fundAssets)
+      // 计算基金收益（返回基金增长额）
+      const { totalIncome: fundGrowthAmount, updatedAssets, fundDetails } = this.calculateFundIncomeForMonth(month, fundAssets)
       fundAssets = updatedAssets
 
       // 计算存款收益
       const depositIncome = this.calculateDepositIncomeForMonth(month)
 
-      // 总资产 = 累计投入 + 基金收益 + 存款收益
-      const totalAssets = cumulativeInvestment + fundIncome + depositIncome
+      // 计算基金总市值
+      let totalFundValue = 0
+      for (const value of fundAssets.values()) {
+        totalFundValue += value
+      }
+
+      // 总资产 = 累计投入 + 基金总市值 - 累计定投 + 存款收益
+      // 解释：累计投入已包含所有定投，基金总市值包含定投和收益，所以需要减去累计定投避免重复计算
+      const totalAssets = cumulativeInvestment + totalFundValue - totalFundInvestment + depositIncome
 
       // 月末资产
       const endAssets = totalAssets
@@ -353,7 +365,7 @@ class SimulationEngine {
         month,
         cumulativeInvestment,
         totalAssets,
-        fundIncome,
+        fundIncome: fundGrowthAmount,
         depositIncome,
         startAssets,
         endAssets,

@@ -124,6 +124,19 @@ export function processMonthData(
 }
 
 /**
+ * 获取前一个月的key
+ * @param currentKey 当前月份key (格式: YYYY-MM)
+ * @returns 前一个月的key
+ */
+function getPreviousMonthKey(currentKey: string): string | null {
+  const [year, month] = currentKey.split('-').map(Number)
+  if (month === 1) {
+    return `${year - 1}-12`
+  }
+  return `${year}-${(month - 1).toString().padStart(2, '0')}`
+}
+
+/**
  * 处理所有基金数据
  * @param trendData 原始基金净值趋势数据
  * @returns 按年月索引的 FundNavData 对象
@@ -134,9 +147,38 @@ export function processFundData(
   const groupedByMonth = groupDataByMonth(trendData)
   const monthlyData: Record<string, FundNavData> = {}
 
-  Object.keys(groupedByMonth).forEach(key => {
+  // 获取所有月份key并排序
+  const sortedKeys = Object.keys(groupedByMonth).sort()
+
+  sortedKeys.forEach(key => {
     const monthData = groupedByMonth[key]
-    monthlyData[key] = processMonthData(monthData)
+    const sortedData = sortMonthDataByDay(monthData)
+    const startDay = getMonthStartData(sortedData)
+    const endDay = getMonthEndData(sortedData)
+
+    let actualStartNav = startDay.nav
+    let actualStartDate = `${startDay.year}-${startDay.month.toString().padStart(2, '0')}-${startDay.day.toString().padStart(2, '0')}`
+
+    // 如果startDate不是1号，尝试使用前一个月的endNav
+    if (startDay.day !== 1) {
+      const prevKey = getPreviousMonthKey(key)
+      if (prevKey && monthlyData[prevKey]) {
+        actualStartNav = monthlyData[prevKey].endNav
+        actualStartDate = monthlyData[prevKey].endDate
+      }
+    }
+
+    // 计算growthRate: 如果使用了前一个月的endNav作为startNav，则使用实际startNav计算
+    const growthRate = actualStartNav !== 0 ? endDay.nav / actualStartNav : 1
+
+    monthlyData[key] = {
+      startNav: actualStartNav,
+      startDate: actualStartDate,
+      endNav: endDay.nav,
+      endDate: `${endDay.year}-${endDay.month.toString().padStart(2, '0')}-${endDay.day.toString().padStart(2, '0')}`,
+      growthRate,
+      allData: sortedData
+    }
   })
 
   return monthlyData
