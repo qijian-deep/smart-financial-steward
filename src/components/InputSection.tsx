@@ -223,11 +223,15 @@ export function InputSection({
             <div className="form-group">
               <label>月收入</label>
               <input
-                type="number"
+                type="text"
+                inputMode="numeric"
                 value={income.income}
-                onChange={(e) => updateMonthlyIncome(index, 'income', Number(e.target.value))}
-                min={0}
-                step={1000}
+                onChange={(e) => {
+                  const value = e.target.value
+                  if (value === '' || /^\d*$/.test(value)) {
+                    updateMonthlyIncome(index, 'income', value === '' ? 0 : Number(value))
+                  }
+                }}
               />
             </div>
             <div className="form-group">
