@@ -25,11 +25,19 @@ export function OutputSection({
     const data = activeView === 'history'
       ? simulationResult.monthlyData
       : shiftToFuture(simulationResult, simulationParams.shiftYears)?.monthlyData || null
-    // 映射字段名以兼容图表
-    return data?.map(item => ({
-      ...item,
-      totalInvestment: item.cumulativeInvestment
-    })) || null
+    // 映射字段名以兼容图表，并计算总收益金额
+    return data?.map(item => {
+      const totalInvestment = item.cumulativeInvestment
+      const totalAssets = item.totalAssets
+      const profitAmount = totalAssets - totalInvestment
+      return {
+        ...item,
+        totalInvestment: 0, // 累计投入的收益基准线为0
+        totalAssets: profitAmount, // 组合总收益金额
+        _originalTotalAssets: totalAssets, // 保留原始值用于tooltip显示
+        _originalTotalInvestment: totalInvestment
+      }
+    }) || null
   }, [activeView, simulationResult, shiftToFuture, simulationParams.shiftYears])
 
   const maxDrawdownPoint = useMemo<MonthlyData | null>(() => {
@@ -74,16 +82,22 @@ export function OutputSection({
             <LineChart data={chartData}>
               <CartesianGrid strokeDasharray="3 3" />
               <XAxis dataKey="month" />
-              <YAxis tickFormatter={(value: number) => `${(value / 10000).toFixed(1)}万`} />
+              <YAxis tickFormatter={(value: number) => `${(value / 10000).toFixed(0)}万`} />
               <Tooltip
-                formatter={(value, name) => [`${(Number(value) / 10000).toFixed(2)}万元`, name]}
+                formatter={(value, name, props) => {
+                  const data = props.payload
+                  if (name === '成本基准线') {
+                    return [`0万 (累计投入${(data._originalTotalInvestment / 10000).toFixed(2)}万元)`, name]
+                  }
+                  return [`${(Number(value) / 10000).toFixed(2)}万 (总资产${(data._originalTotalAssets / 10000).toFixed(2)}万元)`, name]
+                }}
                 labelFormatter={(label) => `日期: ${String(label)}`}
               />
               <Legend />
               <Line
                 type="monotone"
                 dataKey="totalAssets"
-                name="组合总资产"
+                name="总收益金额"
                 stroke="#8884d8"
                 strokeWidth={2}
                 dot={false}
@@ -92,7 +106,7 @@ export function OutputSection({
               <Line
                 type="monotone"
                 dataKey="totalInvestment"
-                name="累计投入"
+                name="成本基准线"
                 stroke="#82ca9d"
                 strokeWidth={2}
                 strokeDasharray="5 5"

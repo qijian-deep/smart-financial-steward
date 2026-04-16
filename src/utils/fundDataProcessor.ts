@@ -159,13 +159,11 @@ export function processFundData(
     let actualStartNav = startDay.nav
     let actualStartDate = `${startDay.year}-${startDay.month.toString().padStart(2, '0')}-${startDay.day.toString().padStart(2, '0')}`
 
-    // 如果startDate不是1号，尝试使用前一个月的endNav
-    if (startDay.day !== 1) {
-      const prevKey = getPreviousMonthKey(key)
-      if (prevKey && monthlyData[prevKey]) {
-        actualStartNav = monthlyData[prevKey].endNav
-        actualStartDate = monthlyData[prevKey].endDate
-      }
+    // 尝试使用前一个月的endNav作为当前月的startNav
+    const prevKey = getPreviousMonthKey(key)
+    if (prevKey && monthlyData[prevKey]) {
+      actualStartNav = monthlyData[prevKey].endNav
+      actualStartDate = monthlyData[prevKey].endDate
     }
 
     // 计算growthRate: 如果使用了前一个月的endNav作为startNav，则使用实际startNav计算

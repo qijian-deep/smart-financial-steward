@@ -187,7 +187,7 @@ describe('fundDataProcessor', () => {
       expect(result['2015-01'].endNav).toBe(1.1)
 
       // 验证2月数据
-      expect(result['2015-02'].startNav).toBe(1.11)
+      expect(result['2015-02'].startNav).toBe(1.1)
       expect(result['2015-02'].endNav).toBe(1.2)
     })
 
@@ -204,7 +204,7 @@ describe('fundDataProcessor', () => {
       expect(result['2015-12']).toBeDefined()
       expect(result['2016-01']).toBeDefined()
       expect(result['2015-12'].startNav).toBe(1.5)
-      expect(result['2016-01'].startNav).toBe(1.61)
+      expect(result['2016-01'].startNav).toBe(1.6)
     })
 
     it('应该处理空数据', () => {
