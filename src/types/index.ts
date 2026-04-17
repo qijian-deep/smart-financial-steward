@@ -5,6 +5,7 @@ export interface FundNavData {
   endNav: number
   endDate: string
   growthRate: number
+  totalDividend: number // 累计分红金额（从持有开始到当前月份）
   allData: Array<{
     year: number
     month: number
@@ -52,6 +53,7 @@ export interface FundMonthlyData {
   growthRate: number // 增长率
   growthAmount: number // 增长金额
   investmentAmount: number // 投资金额
+  dividendIncome: number // 分红收益（累计分红金额 × 持有份额）
 }
 
 // 月度数据类型

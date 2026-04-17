@@ -6,6 +6,7 @@ import type { FundNavData } from '../types'
 export interface RawFundDataItem {
   x: number  // 时间戳
   y: number  // 净值
+  unitMoney?: string  // 分红信息，如 "分红：每份派现金0.006元"
 }
 
 /**
@@ -91,12 +92,14 @@ export function getMonthEndData(
  * @param startDay 月初数据
  * @param endDay 月末数据
  * @param allData 当月所有数据
+ * @param totalDividend 累计分红金额
  * @returns FundNavData 对象
  */
 export function buildFundNavData(
   startDay: GroupedMonthData,
   endDay: GroupedMonthData,
-  allData: GroupedMonthData[]
+  allData: GroupedMonthData[],
+  totalDividend: number = 0
 ): FundNavData {
   return {
     startNav: startDay.nav,
@@ -104,6 +107,7 @@ export function buildFundNavData(
     endNav: endDay.nav,
     endDate: `${endDay.year}-${endDay.month.toString().padStart(2, '0')}-${endDay.day.toString().padStart(2, '0')}`,
     growthRate: startDay.nav !== 0 ? endDay.nav / startDay.nav : 1,
+    totalDividend,
     allData
   }
 }
@@ -137,6 +141,40 @@ function getPreviousMonthKey(currentKey: string): string | null {
 }
 
 /**
+ * 从 unitMoney 字符串中提取分红金额
+ * @param unitMoney 分红信息字符串，如 "分红：每份派现金0.006元"
+ * @returns 分红金额，如果没有则返回 0
+ */
+function extractDividendAmount(unitMoney?: string): number {
+  if (!unitMoney || !unitMoney.includes('分红')) {
+    return 0
+  }
+  const match = unitMoney.match(/每份派现金([\d.]+)/)
+  if (match) {
+    return parseFloat(match[1])
+  }
+  return 0
+}
+
+/**
+ * 计算累计分红金额
+ * @param trendData 原始基金净值趋势数据（已按时间排序，从早到晚）
+ * @returns 每个数据点对应的累计分红金额
+ */
+function calculateAccumulatedDividend(
+  trendData: RawFundDataItem[]
+): number[] {
+  let accumulatedDividend = 0
+  return trendData.map(item => {
+    const dividend = extractDividendAmount(item.unitMoney)
+    if (dividend > 0) {
+      accumulatedDividend += dividend
+    }
+    return accumulatedDividend
+  })
+}
+
+/**
  * 处理所有基金数据
  * @param trendData 原始基金净值趋势数据
  * @returns 按年月索引的 FundNavData 对象
@@ -144,15 +182,22 @@ function getPreviousMonthKey(currentKey: string): string | null {
 export function processFundData(
   trendData: RawFundDataItem[]
 ): Record<string, FundNavData> {
-  const groupedByMonth = groupDataByMonth(trendData)
+  // 按时间排序
+  const sortedTrendData = [...trendData].sort((a, b) => a.x - b.x)
+
+  // 计算累计分红（不调整净值，只记录分红金额）
+  const dividendByIndex = calculateAccumulatedDividend(sortedTrendData)
+
+  // 分组
+  const groupedByMonth = groupDataByMonth(sortedTrendData)
   const monthlyData: Record<string, FundNavData> = {}
 
   // 获取所有月份key并排序
   const sortedKeys = Object.keys(groupedByMonth).sort()
 
   sortedKeys.forEach(key => {
-    const monthData = groupedByMonth[key]
-    const sortedData = sortMonthDataByDay(monthData)
+    const monthDataGroup = groupedByMonth[key]
+    const sortedData = sortMonthDataByDay(monthDataGroup)
     const startDay = getMonthStartData(sortedData)
     const endDay = getMonthEndData(sortedData)
 
@@ -169,12 +214,17 @@ export function processFundData(
     // 计算growthRate: 如果使用了前一个月的endNav作为startNav，则使用实际startNav计算
     const growthRate = actualStartNav !== 0 ? endDay.nav / actualStartNav : 1
 
+    // 计算该月份的累计分红（取该月第一天的累计分红）
+    const firstDayIndex = sortedTrendData.findIndex(item => item.x === startDay.timestamp)
+    const monthTotalDividend = firstDayIndex >= 0 ? dividendByIndex[firstDayIndex] : 0
+
     monthlyData[key] = {
       startNav: actualStartNav,
       startDate: actualStartDate,
       endNav: endDay.nav,
       endDate: `${endDay.year}-${endDay.month.toString().padStart(2, '0')}-${endDay.day.toString().padStart(2, '0')}`,
       growthRate,
+      totalDividend: monthTotalDividend,
       allData: sortedData
     }
   })

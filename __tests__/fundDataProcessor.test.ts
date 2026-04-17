@@ -211,5 +211,63 @@ describe('fundDataProcessor', () => {
       const result = processFundData([])
       expect(result).toEqual({})
     })
+
+    it('应该正确记录分红金额', () => {
+      // 模拟分红场景：
+      // Day 1: 净值 1.5，无分红
+      // Day 2: 分红日，净值 1.494，分红 0.006
+      // Day 3: 净值 1.495，累计分红 0.006
+      const rawDataWithDividend: RawFundDataItem[] = [
+        { x: new Date('2015-01-01').getTime(), y: 1.5 },
+        { x: new Date('2015-01-02').getTime(), y: 1.494, unitMoney: '分红：每份派现金0.006元' },
+        { x: new Date('2015-01-03').getTime(), y: 1.495 }
+      ]
+
+      const result = processFundData(rawDataWithDividend)
+
+      // 验证净值保持不变（不复权）
+      expect(result['2015-01']).toBeDefined()
+      expect(result['2015-01'].allData).toHaveLength(3)
+      expect(result['2015-01'].allData[0].nav).toBe(1.5)      // Day 1
+      expect(result['2015-01'].allData[1].nav).toBe(1.494)    // Day 2, 不复权
+      expect(result['2015-01'].allData[2].nav).toBe(1.495)    // Day 3, 不复权
+
+      // 验证累计分红金额
+      expect(result['2015-01'].totalDividend).toBe(0.006)     // 累计分红 0.006
+    })
+
+    it('应该正确记录多次分红金额', () => {
+      // 模拟两次分红
+      const rawDataWithMultipleDividends: RawFundDataItem[] = [
+        { x: new Date('2015-01-01').getTime(), y: 2.0 },
+        { x: new Date('2015-01-02').getTime(), y: 1.994, unitMoney: '分红：每份派现金0.006元' },
+        { x: new Date('2015-01-03').getTime(), y: 2.0 },
+        { x: new Date('2015-01-04').getTime(), y: 1.988, unitMoney: '分红：每份派现金0.012元' },
+        { x: new Date('2015-01-05').getTime(), y: 1.99 }
+      ]
+
+      const result = processFundData(rawDataWithMultipleDividends)
+
+      // 净值保持不变（不复权）
+      expect(result['2015-01'].allData[0].nav).toBe(2.0)      // Day 1
+      expect(result['2015-01'].allData[1].nav).toBe(1.994)    // Day 2
+      expect(result['2015-01'].allData[2].nav).toBe(2.0)      // Day 3
+      expect(result['2015-01'].allData[3].nav).toBe(1.988)    // Day 4
+      expect(result['2015-01'].allData[4].nav).toBe(1.99)     // Day 5
+
+      // 累计分红 = 0.006 + 0.012 = 0.018
+      expect(result['2015-01'].totalDividend).toBeCloseTo(0.018, 10)
+    })
+
+    it('无分红时累计分红应为0', () => {
+      const rawDataWithoutDividend: RawFundDataItem[] = [
+        { x: new Date('2015-01-01').getTime(), y: 1.0 },
+        { x: new Date('2015-01-02').getTime(), y: 1.1 }
+      ]
+
+      const result = processFundData(rawDataWithoutDividend)
+
+      expect(result['2015-01'].totalDividend).toBe(0)
+    })
   })
 })
