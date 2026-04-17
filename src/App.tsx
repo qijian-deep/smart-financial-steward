@@ -1,10 +1,54 @@
 import './App.css'
-import { useEffect, useState, useCallback, useMemo } from 'react'
+import { useEffect, useState, useCallback, useMemo, useRef } from 'react'
 import { fundDataLoader } from './services/FundDataLoader'
 import { simulationEngine } from './services/SimulationEngine'
 import { InputSection } from './components/InputSection'
 import { OutputSection } from './components/OutputSection'
 import type { SimulationResult, FundConfig, MonthlyIncome, DepositAllocation, SimulationParams, IncomeSegment } from './types'
+
+// localStorage key
+const STORAGE_KEY = 'smartFinancialSteward_inputData'
+
+// 从 localStorage 加载数据（独立函数，不依赖 React）
+function loadInputDataFromStorage(): {
+  fundConfigs: FundConfig[] | null
+  monthlyIncomes: MonthlyIncome[] | null
+  monthlyExpenses: number | null
+  yearExtExpenses: number[] | null
+  depositAllocations: DepositAllocation[] | null
+  initialBalance: number | null
+  mockStartDate: string | null
+  mockEndDate: string | null
+} {
+  try {
+    const savedData = localStorage.getItem(STORAGE_KEY)
+    if (savedData) {
+      const parsed = JSON.parse(savedData)
+      return {
+        fundConfigs: parsed.fundConfigs || null,
+        monthlyIncomes: parsed.monthlyIncomes || null,
+        monthlyExpenses: parsed.monthlyExpenses !== undefined ? parsed.monthlyExpenses : null,
+        yearExtExpenses: parsed.yearExtExpenses || null,
+        depositAllocations: parsed.depositAllocations || null,
+        initialBalance: parsed.initialBalance !== undefined ? parsed.initialBalance : null,
+        mockStartDate: parsed.mockStartDate || null,
+        mockEndDate: parsed.mockEndDate || null
+      }
+    }
+  } catch (error) {
+    console.error('Failed to load data from localStorage:', error)
+  }
+  return {
+    fundConfigs: null,
+    monthlyIncomes: null,
+    monthlyExpenses: null,
+    yearExtExpenses: null,
+    depositAllocations: null,
+    initialBalance: null,
+    mockStartDate: null,
+    mockEndDate: null
+  }
+}
 
 function App() {
   // 基金加载相关状态
@@ -23,17 +67,42 @@ function App() {
     shiftYears: 10
   })
 
+  // 标记是否已经加载过 localStorage 数据
+  const hasLoadedFromStorage = useRef(false)
+
   // 初始化
   useEffect(() => {
-    // 初始化 simulationEngine 的默认日期
-    simulationEngine.setMockStartDate('2016-03')
-    simulationEngine.setMockEndDate('2026-03')
-    // 初始化默认月收入
-    simulationEngine.setMonthlyIncomes([{ income: 10000, startDate: '2016-03', endDate: '2026-03' }])
-    // 初始化默认月支出
-    simulationEngine.setMonthlyExpenses(5000)
-    // 初始化默认初始余额
-    simulationEngine.setInitialBalance(10000)
+    // 只加载一次 localStorage 数据
+    if (!hasLoadedFromStorage.current) {
+      const savedData = loadInputDataFromStorage()
+      
+      // 应用加载的数据
+      if (savedData.fundConfigs) simulationEngine.setFundConfigs(savedData.fundConfigs)
+      if (savedData.monthlyIncomes) simulationEngine.setMonthlyIncomes(savedData.monthlyIncomes)
+      if (savedData.monthlyExpenses !== null) simulationEngine.setMonthlyExpenses(savedData.monthlyExpenses)
+      if (savedData.yearExtExpenses) simulationEngine.setYearExtExpenses(savedData.yearExtExpenses)
+      if (savedData.depositAllocations) simulationEngine.setDepositAllocations(savedData.depositAllocations)
+      if (savedData.initialBalance !== null) simulationEngine.setInitialBalance(savedData.initialBalance)
+      if (savedData.mockStartDate) simulationEngine.setMockStartDate(savedData.mockStartDate)
+      if (savedData.mockEndDate) simulationEngine.setMockEndDate(savedData.mockEndDate)
+      
+      // 如果没有保存的数据，则使用默认值
+      const hasAnySavedData = Object.values(savedData).some(v => v !== null)
+      if (!hasAnySavedData) {
+        // 初始化 simulationEngine 的默认日期
+        simulationEngine.setMockStartDate('2016-03')
+        simulationEngine.setMockEndDate('2026-03')
+        // 初始化默认月收入
+        simulationEngine.setMonthlyIncomes([{ income: 10000, startDate: '2016-03', endDate: '2026-03' }])
+        // 初始化默认月支出
+        simulationEngine.setMonthlyExpenses(5000)
+        // 初始化默认初始余额
+        simulationEngine.setInitialBalance(10000)
+      }
+      
+      hasLoadedFromStorage.current = true
+      forceUpdate({})
+    }
 
     // 订阅模拟引擎的结果变化
     const unsubscribeResult = simulationEngine.subscribe('resultChange', (result) => {
@@ -103,42 +172,65 @@ function App() {
     }
   }, [])
 
+  // 保存数据到 localStorage
+  const saveToLocalStorage = useCallback(() => {
+    const data = getSimulationData()
+    const dataToSave = {
+      fundConfigs: data.fundConfigs,
+      monthlyIncomes: data.monthlyIncomes,
+      monthlyExpenses: data.monthlyExpenses,
+      yearExtExpenses: data.yearExtExpenses,
+      depositAllocations: data.depositAllocations,
+      initialBalance: data.initialBalance,
+      mockStartDate: data.mockStartDate,
+      mockEndDate: data.mockEndDate
+    }
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(dataToSave))
+  }, [])
+
   // 设置器方法
   const setFundConfigs = useCallback((configs: FundConfig[]) => {
     simulationEngine.setFundConfigs(configs)
     forceUpdate({})
-  }, [])
+    saveToLocalStorage()
+  }, [saveToLocalStorage])
 
   const setMonthlyIncomes = useCallback((incomes: MonthlyIncome[]) => {
     simulationEngine.setMonthlyIncomes(incomes)
     forceUpdate({})
-  }, [])
+    saveToLocalStorage()
+  }, [saveToLocalStorage])
 
   const setMonthlyExpenses = useCallback((value: number) => {
     simulationEngine.setMonthlyExpenses(value)
     forceUpdate({})
-  }, [])
+    saveToLocalStorage()
+  }, [saveToLocalStorage])
 
   const setYearExtExpenses = useCallback((expenses: number[]) => {
     simulationEngine.setYearExtExpenses(expenses)
     forceUpdate({})
-  }, [])
+    saveToLocalStorage()
+  }, [saveToLocalStorage])
 
   const setDepositAllocations = useCallback((allocations: DepositAllocation[]) => {
     simulationEngine.setDepositAllocations(allocations)
     forceUpdate({})
-  }, [])
+    saveToLocalStorage()
+  }, [saveToLocalStorage])
 
   const setInitialBalance = useCallback((value: number) => {
     simulationEngine.setInitialBalance(value)
     forceUpdate({})
-  }, [])
+    saveToLocalStorage()
+  }, [saveToLocalStorage])
 
   const setMockDateRange = useCallback((startDate: string, endDate: string) => {
     simulationEngine.setMockStartDate(startDate)
     simulationEngine.setMockEndDate(endDate)
     forceUpdate({})
-  }, [])
+    saveToLocalStorage()
+  }, [saveToLocalStorage])
 
   // 触发计算
   const triggerCalculation = useCallback(() => {
