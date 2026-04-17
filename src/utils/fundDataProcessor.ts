@@ -214,9 +214,9 @@ export function processFundData(
     // 计算growthRate: 如果使用了前一个月的endNav作为startNav，则使用实际startNav计算
     const growthRate = actualStartNav !== 0 ? endDay.nav / actualStartNav : 1
 
-    // 计算该月份的累计分红（取该月第一天的累计分红）
-    const firstDayIndex = sortedTrendData.findIndex(item => item.x === startDay.timestamp)
-    const monthTotalDividend = firstDayIndex >= 0 ? dividendByIndex[firstDayIndex] : 0
+    // 计算该月份的累计分红（取该月最后一天的累计分红）
+    const lastDayIndex = sortedTrendData.findIndex(item => item.x === endDay.timestamp)
+    const monthTotalDividend = lastDayIndex >= 0 ? dividendByIndex[lastDayIndex] : 0
 
     monthlyData[key] = {
       startNav: actualStartNav,
