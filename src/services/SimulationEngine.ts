@@ -477,6 +477,83 @@ class SimulationEngine {
     const totalReturnAmount = finalAssets - totalInvestment
     const totalReturnPercent = totalInvestment > 0 ? (totalReturnAmount / totalInvestment) * 100 : 0
 
+    // 计算年化收益率（基于期末资产和期初投入的时间加权）
+    const monthsCount = monthlyData.length
+    const yearsCount = monthsCount / 12
+    const annualizedReturn = yearsCount > 0 && totalInvestment > 0
+      ? (Math.pow(finalAssets / totalInvestment, 1 / yearsCount) - 1) * 100
+      : 0
+
+    // 计算定投IRR（内部收益率）
+    const calculateIRR = (): number => {
+      if (monthsCount === 0 || totalInvestment === 0) return 0
+
+      // 构建现金流数组
+      // 第0期：投入（负）
+      // 第1期到第n-2期：投入（负）
+      // 第n-1期：投入（负）+ 期末资产（正）
+      const cashFlows: number[] = []
+      
+      for (let i = 0; i < monthsCount; i++) {
+        const currInvestment = monthlyData[i].cumulativeInvestment
+        const prevInvestment = i > 0 ? monthlyData[i - 1].cumulativeInvestment : 0
+        const monthInvestment = currInvestment - prevInvestment
+        
+        if (i === monthsCount - 1) {
+          // 最后一期：期末资产 - 本期投入
+          cashFlows.push(finalAssets - monthInvestment)
+        } else {
+          // 其他期：负的投入
+          cashFlows.push(-monthInvestment)
+        }
+      }
+
+      // 使用二分法求解月IRR（更稳定）
+      let low = -0.99
+      let high = 10.0
+      let mid = 0
+      
+      const calcNPV = (r: number): number => {
+        let npv = 0
+        for (let i = 0; i < cashFlows.length; i++) {
+          npv += cashFlows[i] / Math.pow(1 + r, i)
+        }
+        return npv
+      }
+
+      // 检查是否有解
+      const npvLow = calcNPV(low)
+      const npvHigh = calcNPV(high)
+      
+      if (npvLow * npvHigh > 0) {
+        // 无解或多个解，使用简单估算
+        // 使用时间加权收益率近似
+        return annualizedReturn
+      }
+
+      // 二分法求解
+      for (let iter = 0; iter < 100; iter++) {
+        mid = (low + high) / 2
+        const npv = calcNPV(mid)
+        
+        if (Math.abs(npv) < 1e-6) break
+        
+        if (npv > 0) {
+          low = mid
+        } else {
+          high = mid
+        }
+      }
+
+      // 将月IRR转换为年IRR
+      const monthlyIRR = mid
+      const annualIRR = (Math.pow(1 + monthlyIRR, 12) - 1) * 100
+      
+      return annualIRR
+    }
+
+    const irr = calculateIRR()
+
     // 计算最大回撤
     let maxDrawdownAmount = 0
     let maxDrawdownPercent = 0
@@ -501,7 +578,9 @@ class SimulationEngine {
       monthlyData,
       totalReturn: {
         amount: totalReturnAmount,
-        percent: totalReturnPercent
+        percent: totalReturnPercent,
+        annualizedReturn,
+        irr
       },
       maxDrawdown: {
         amount: maxDrawdownAmount,

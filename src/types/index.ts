@@ -85,6 +85,8 @@ export interface MonthlyData {
 export interface TotalReturn {
   amount: number
   percent: number
+  annualizedReturn: number // 年化收益率
+  irr: number // 定投IRR（内部收益率）
 }
 
 // 最大回撤类型

@@ -242,6 +242,14 @@ export function OutputSection({
               <p>{(simulationResult.totalReturn.amount / 10000).toFixed(2)}万 / {simulationResult.totalReturn.percent.toFixed(2)}%</p>
             </div>
             <div className="card">
+              <h3>年化收益</h3>
+              <p>{simulationResult.totalReturn.annualizedReturn.toFixed(2)}%</p>
+            </div>
+            <div className="card">
+              <h3>内部收益率(IRR)</h3>
+              <p>{simulationResult.totalReturn.irr.toFixed(2)}%</p>
+            </div>
+            <div className="card">
               <h3>最大回撤</h3>
               <p>-{simulationResult.maxDrawdown.percent.toFixed(2)}%（发生在{simulationResult.maxDrawdown.month}）</p>
             </div>
