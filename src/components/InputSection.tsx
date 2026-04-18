@@ -40,6 +40,9 @@ interface InputSectionProps {
   mockStartDate: string
   mockEndDate: string
   setMockDateRange: (startDate: string, endDate: string) => void
+  // Future view
+  shiftYears: number
+  setShiftYears: (value: number) => void
   // Calculation
   onCalculate: () => void
 }
@@ -55,6 +58,8 @@ export function InputSection({
   depositAllocations, setDepositAllocations,
   initialBalance, setInitialBalance,
   mockStartDate, mockEndDate, setMockDateRange,
+  // Future view
+  shiftYears, setShiftYears,
   // Calculation
   onCalculate
 }: InputSectionProps) {
@@ -270,6 +275,20 @@ export function InputSection({
               }
             }}
           />
+        </div>
+
+        {/* 平移年份 */}
+        <div className="form-group">
+          <label>平移年份（未来视图）</label>
+          <input
+            type="number"
+            value={shiftYears}
+            onChange={(e) => setShiftYears(Number(e.target.value))}
+            min={1}
+            max={50}
+            step={1}
+          />
+          <small style={{ color: '#666', fontSize: '12px' }}>未来视图将历史数据平移的年数</small>
         </div>
       </div>
 

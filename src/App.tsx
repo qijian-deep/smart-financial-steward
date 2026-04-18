@@ -323,6 +323,9 @@ function App() {
           mockStartDate={renderData.mockStartDate}
           mockEndDate={renderData.mockEndDate}
           setMockDateRange={setMockDateRange}
+          // Future view
+          shiftYears={simulationParams.shiftYears}
+          setShiftYears={(value) => setSimulationParams(prev => ({ ...prev, shiftYears: value }))}
           // Calculation
           onCalculate={triggerCalculation}
         />
