@@ -77,14 +77,7 @@ export function OutputSection({
         shadowBlur: 10,
         shadowOffsetY: 5
       },
-      point: {
-        size: 4,
-        shape: 'circle',
-        style: {
-          stroke: '#fff',
-          lineWidth: 2
-        }
-      },
+
       label: false,
       tooltip: {
         formatter: (datum) => {
