@@ -1,8 +1,5 @@
-import { useState, useMemo } from 'react'
-import {
-  LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
-  ReferenceDot
-} from 'recharts'
+import { useState, useMemo, useEffect, useRef } from 'react'
+import { Line } from '@antv/g2plot'
 import type { SimulationResult, SimulationParams, IncomeSegment, MonthlyData } from '../types'
 
 interface OutputSectionProps {
@@ -19,17 +16,15 @@ export function OutputSection({
   incomeSegments
 }: OutputSectionProps) {
   const [activeView, setActiveView] = useState<'history' | 'future'>('history')
+  const chartRef = useRef<HTMLDivElement>(null)
+  const chartInstanceRef = useRef<Line | null>(null)
 
   const chartData = useMemo<MonthlyData[] | null>(() => {
     if (!simulationResult) return null
     const data = activeView === 'history'
       ? simulationResult.monthlyData
       : shiftToFuture(simulationResult, simulationParams.shiftYears)?.monthlyData || null
-    // 映射字段名以兼容图表
-    return data?.map(item => ({
-      ...item,
-      totalInvestment: item.cumulativeInvestment
-    })) || null
+    return data || null
   }, [activeView, simulationResult, shiftToFuture, simulationParams.shiftYears])
 
   const maxDrawdownPoint = useMemo<MonthlyData | null>(() => {
@@ -44,8 +39,167 @@ export function OutputSection({
     return chartData.find(item => item.month === targetMonth) || null
   }, [chartData, simulationResult, activeView, simulationParams.shiftYears])
 
+  // 初始化并更新图表
+  useEffect(() => {
+    if (!chartRef.current || !chartData || chartData.length === 0) return
+
+    // 准备图表数据
+    const lineData = chartData.flatMap(item => [
+      {
+        month: item.month,
+        value: item.totalAssets / 10000,
+        type: '组合总资产'
+      },
+      {
+        month: item.month,
+        value: item.cumulativeInvestment / 10000,
+        type: '累计投入'
+      }
+    ])
+
+    // 如果图表已存在，先销毁
+    if (chartInstanceRef.current) {
+      chartInstanceRef.current.destroy()
+    }
+
+    // 创建新图表
+    const line = new Line(chartRef.current, {
+      data: lineData,
+      xField: 'month',
+      yField: 'value',
+      seriesField: 'type',
+      smooth: true,
+      animation: false,
+      color: ['#1677ff', '#52c41a'],
+      lineStyle: {
+        lineWidth: 3,
+        shadowColor: 'rgba(0,0,0,0.1)',
+        shadowBlur: 10,
+        shadowOffsetY: 5
+      },
+      point: {
+        size: 4,
+        shape: 'circle',
+        style: {
+          stroke: '#fff',
+          lineWidth: 2
+        }
+      },
+      label: false,
+      tooltip: {
+        formatter: (datum) => {
+          return {
+            name: datum.type,
+            value: `${datum.value.toFixed(2)}万元`
+          }
+        },
+        domStyles: {
+          'g2-tooltip': {
+            background: 'rgba(255, 255, 255, 0.95)',
+            borderRadius: '8px',
+            boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+            padding: '12px 16px',
+            fontSize: '14px'
+          }
+        }
+      },
+      legend: {
+        position: 'top-right',
+        itemSpacing: 20,
+        itemName: {
+          style: {
+            fontSize: 14,
+            fill: '#595959'
+          }
+        },
+        marker: {
+          symbol: 'circle',
+          style: {
+            r: 5
+          }
+        }
+      },
+      xAxis: {
+        label: {
+          style: {
+            fill: '#8c8c8c',
+            fontSize: 12
+          },
+          rotate: 45,
+          autoRotate: true
+        },
+        line: {
+          style: {
+            stroke: '#f0f0f0'
+          }
+        },
+        tickLine: {
+          style: {
+            stroke: '#f0f0f0'
+          }
+        },
+        grid: {
+          line: {
+            style: {
+              stroke: '#f5f5f5',
+              lineDash: [4, 4]
+            }
+          }
+        }
+      },
+      yAxis: {
+        label: {
+          style: {
+            fill: '#8c8c8c',
+            fontSize: 12
+          },
+          formatter: (v) => `${v}万`
+        },
+        line: {
+          style: {
+            stroke: '#f0f0f0'
+          }
+        },
+        tickLine: {
+          style: {
+            stroke: '#f0f0f0'
+          }
+        },
+        grid: {
+          line: {
+            style: {
+              stroke: '#f5f5f5',
+              lineDash: [4, 4]
+            }
+          }
+        }
+      },
+      annotations: maxDrawdownPoint ? [
+        {
+          type: 'point',
+          position: [maxDrawdownPoint.month, maxDrawdownPoint.totalAssets / 10000],
+          style: {
+            fill: '#ff4d4f',
+            stroke: '#fff',
+            lineWidth: 2,
+            r: 6
+          }
+        }
+      ] : []
+    })
+
+    line.render()
+    chartInstanceRef.current = line
+
+    return () => {
+      if (chartInstanceRef.current) {
+        chartInstanceRef.current.destroy()
+        chartInstanceRef.current = null
+      }
+    }
+  }, [chartData, maxDrawdownPoint])
+
   const hasNegativeBalance = useMemo<boolean>(() => {
-    // 检查是否有负增长（资产减少）
     return simulationResult?.monthlyData?.some(item => item.growthAmount < 0) || false
   }, [simulationResult])
 
@@ -68,48 +222,13 @@ export function OutputSection({
       </div>
 
       {/* 图表输出 */}
-      <div className="chart-container">
-        {chartData && (
-          <ResponsiveContainer width="100%" height={400}>
-            <LineChart data={chartData}>
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="month" />
-              <YAxis tickFormatter={(value: number) => `${(value / 10000).toFixed(1)}万`} />
-              <Tooltip
-                formatter={(value, name) => [`${(Number(value) / 10000).toFixed(2)}万元`, name]}
-                labelFormatter={(label) => `日期: ${String(label)}`}
-              />
-              <Legend />
-              <Line
-                type="monotone"
-                dataKey="totalAssets"
-                name="组合总资产"
-                stroke="#8884d8"
-                strokeWidth={2}
-                dot={false}
-                activeDot={{ r: 6 }}
-              />
-              <Line
-                type="monotone"
-                dataKey="totalInvestment"
-                name="累计投入"
-                stroke="#82ca9d"
-                strokeWidth={2}
-                strokeDasharray="5 5"
-                dot={false}
-                activeDot={{ r: 6 }}
-              />
-              {maxDrawdownPoint && (
-                <ReferenceDot
-                  x={maxDrawdownPoint.month}
-                  y={maxDrawdownPoint.totalAssets}
-                  r={6}
-                  fill="red"
-                  label="最大回撤"
-                />
-              )}
-            </LineChart>
-          </ResponsiveContainer>
+      <div className="chart-container" style={{ background: '#fff', borderRadius: '8px', padding: '20px', boxShadow: '0 2px 8px rgba(0,0,0,0.06)' }}>
+        {chartData ? (
+          <div ref={chartRef} style={{ width: '100%', height: '400px' }} />
+        ) : (
+          <div style={{ height: '400px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#bfbfbf' }}>
+            暂无数据，请先运行模拟
+          </div>
         )}
       </div>
 
@@ -145,53 +264,6 @@ export function OutputSection({
           </div>
         )}
       </div>
-
-      {/* 每月资产增长数据 */}
-      {/* {activeView === 'history' && simulationResult && (
-        <div className="asset-growth-data" style={{ marginBottom: '1rem', background: 'rgba(255,255,255,0.05)', padding: '1rem', borderRadius: '8px' }}>
-          <h3 style={{ marginBottom: '0.5rem', fontSize: '0.9em' }}>每月资产增长数据</h3>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '0.75rem', fontSize: '0.8em' }}>
-            {simulationResult.monthlyData.map((data, idx) => (
-              <div key={idx} style={{ padding: '0.75rem', background: 'rgba(255,255,255,0.03)', borderRadius: '4px' }}>
-                <div style={{ fontWeight: 'bold', marginBottom: '0.5rem', fontSize: '1em' }}>{data.month}</div>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.25rem', marginBottom: '0.5rem' }}>
-                  <div>月初资产: {(data.startAssets / 10000).toFixed(2)}万</div>
-                  <div>月末资产: {(data.endAssets / 10000).toFixed(2)}万</div>
-                </div>
-                <div style={{ display: 'flex', gap: '1rem', marginBottom: '0.5rem' }}>
-                  <span style={{ color: data.growthRate >= 1 ? '#4caf50' : '#f44336' }}>
-                    增长率: {(data.growthRate * 100 - 100).toFixed(2)}%
-                  </span>
-                  <span style={{ color: data.growthAmount >= 0 ? '#4caf50' : '#f44336' }}>
-                    增长额: {(data.growthAmount / 10000).toFixed(2)}万
-                  </span>
-                </div>
-                {data.fundDetails && data.fundDetails.length > 0 && (
-                  <div style={{ marginTop: '0.5rem', paddingTop: '0.5rem', borderTop: '1px solid rgba(255,255,255,0.1)' }}>
-                    <div style={{ fontWeight: 'bold', marginBottom: '0.25rem' }}>基金明细:</div>
-                    {data.fundDetails.map((fund, fundIdx) => (
-                      <div key={fundIdx} style={{ marginBottom: '0.25rem', paddingLeft: '0.5rem' }}>
-                        <div>
-                          {fund.fundName} ({fund.fundCode}):
-                          <span style={{ color: fund.growthRate >= 1 ? '#4caf50' : '#f44336' }}>
-                            增长率 {(fund.growthRate * 100 - 100).toFixed(2)}%
-                          </span>
-                          <span style={{ color: fund.growthAmount >= 0 ? '#4caf50' : '#f44336', marginLeft: '0.5rem' }}>
-                            增长额 {(fund.growthAmount / 10000).toFixed(2)}万
-                          </span>
-                        </div>
-                        <div style={{ fontSize: '0.9em', color: 'rgba(255,255,255,0.6)' }}>
-                          月初: {(fund.startAssets / 10000).toFixed(2)}万 → 月末: {(fund.endAssets / 10000).toFixed(2)}万 (定投: {(fund.investmentAmount / 10000).toFixed(2)}万)
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            ))}
-          </div>
-        </div>
-      )} */}
 
       {/* 风险提示 */}
       {activeView === 'history' && simulationResult && (
