@@ -8,6 +8,15 @@ import type {
   AvailableFund
 } from '../types'
 
+// localStorage key for fund config presets
+const FUND_CONFIG_PRESETS_KEY = 'smartfinancialsteward_fund_config_presets'
+
+interface FundConfigPreset {
+  name: string
+  configs: FundConfig[]
+  createdAt: string
+}
+
 interface InputSectionProps {
   // Fund data
   fundCodeInput: string
@@ -89,6 +98,55 @@ export function InputSection({
   // 删除基金配置
   const removeFundConfig = (index: number) => {
     setFundConfigs(fundConfigs.filter((_, i) => i !== index))
+  }
+
+  // 保存和加载基金配置
+  const [saveConfigName, setSaveConfigName] = useState('')
+  const [showSaveInput, setShowSaveInput] = useState(false)
+  const [savedConfigs, setSavedConfigs] = useState<FundConfigPreset[]>(() => {
+    const saved = localStorage.getItem(FUND_CONFIG_PRESETS_KEY)
+    return saved ? JSON.parse(saved) : []
+  })
+  const [selectedConfigName, setSelectedConfigName] = useState('')
+  const [showLoadSelect, setShowLoadSelect] = useState(false)
+
+  // 保存基金配置到localStorage
+  const saveFundConfig = () => {
+    if (!saveConfigName.trim()) return
+    
+    const newPreset: FundConfigPreset = {
+      name: saveConfigName.trim(),
+      configs: [...fundConfigs],
+      createdAt: new Date().toISOString()
+    }
+    
+    const updatedConfigs = [...savedConfigs.filter(c => c.name !== newPreset.name), newPreset]
+    setSavedConfigs(updatedConfigs)
+    localStorage.setItem(FUND_CONFIG_PRESETS_KEY, JSON.stringify(updatedConfigs))
+    
+    setSaveConfigName('')
+    setShowSaveInput(false)
+    alert(`基金配置"${newPreset.name}"已保存`)
+  }
+
+  // 从localStorage加载基金配置
+  const loadFundConfig = () => {
+    if (!selectedConfigName) return
+    
+    const preset = savedConfigs.find(c => c.name === selectedConfigName)
+    if (preset) {
+      setFundConfigs([...preset.configs])
+      setSelectedConfigName('')
+      setShowLoadSelect(false)
+      alert(`基金配置"${preset.name}"已加载`)
+    }
+  }
+
+  // 删除保存的基金配置
+  const deleteSavedConfig = (name: string) => {
+    const updatedConfigs = savedConfigs.filter(c => c.name !== name)
+    setSavedConfigs(updatedConfigs)
+    localStorage.setItem(FUND_CONFIG_PRESETS_KEY, JSON.stringify(updatedConfigs))
   }
 
   // 添加月收入
@@ -274,6 +332,249 @@ export function InputSection({
       {/* 基金配置 */}
       <div className="section">
         <h2>基金配置</h2>
+        
+        {/* 保存和加载按钮 */}
+        <div style={{ marginBottom: '1rem', display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
+          <button 
+            onClick={() => setShowSaveInput(!showSaveInput)}
+            disabled={fundConfigs.length === 0}
+            style={{ 
+              background: fundConfigs.length === 0 ? '#f5f5f5' : '#1677ff',
+              color: fundConfigs.length === 0 ? '#bfbfbf' : '#fff',
+              border: `1px solid ${fundConfigs.length === 0 ? '#d9d9d9' : '#1677ff'}`,
+              borderRadius: '6px',
+              padding: '6px 16px',
+              fontSize: '14px',
+              cursor: fundConfigs.length === 0 ? 'not-allowed' : 'pointer',
+              transition: 'all 0.2s',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              boxShadow: fundConfigs.length === 0 ? 'none' : '0 2px 0 rgba(5, 145, 255, 0.1)'
+            }}
+            onMouseEnter={(e) => {
+              if (fundConfigs.length > 0) {
+                e.currentTarget.style.background = '#4096ff'
+              }
+            }}
+            onMouseLeave={(e) => {
+              if (fundConfigs.length > 0) {
+                e.currentTarget.style.background = '#1677ff'
+              }
+            }}
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/>
+              <polyline points="17 21 17 13 7 13 7 21"/>
+              <polyline points="7 3 7 8 15 8"/>
+            </svg>
+            保存配置
+          </button>
+          <button 
+            onClick={() => setShowLoadSelect(!showLoadSelect)}
+            disabled={savedConfigs.length === 0}
+            style={{ 
+              background: savedConfigs.length === 0 ? '#f5f5f5' : '#fff',
+              color: savedConfigs.length === 0 ? '#bfbfbf' : '#595959',
+              border: `1px solid ${savedConfigs.length === 0 ? '#d9d9d9' : '#d9d9d9'}`,
+              borderRadius: '6px',
+              padding: '6px 16px',
+              fontSize: '14px',
+              cursor: savedConfigs.length === 0 ? 'not-allowed' : 'pointer',
+              transition: 'all 0.2s',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px'
+            }}
+            onMouseEnter={(e) => {
+              if (savedConfigs.length > 0) {
+                e.currentTarget.style.color = '#1677ff'
+                e.currentTarget.style.borderColor = '#1677ff'
+              }
+            }}
+            onMouseLeave={(e) => {
+              if (savedConfigs.length > 0) {
+                e.currentTarget.style.color = '#595959'
+                e.currentTarget.style.borderColor = '#d9d9d9'
+              }
+            }}
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+              <polyline points="7 10 12 15 17 10"/>
+              <line x1="12" y1="15" x2="12" y2="3"/>
+            </svg>
+            加载配置
+          </button>
+        </div>
+
+        {/* 保存配置输入框 */}
+        {showSaveInput && (
+          <div style={{ marginBottom: '1rem', padding: '0.75rem', background: '#f5f5f5', borderRadius: '4px' }}>
+            <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+              <input
+                type="text"
+                value={saveConfigName}
+                onChange={(e) => setSaveConfigName(e.target.value)}
+                placeholder="输入配置名称"
+                style={{ flex: 1 }}
+              />
+              <button 
+                onClick={saveFundConfig}
+                disabled={!saveConfigName.trim()}
+                style={{ 
+                  background: !saveConfigName.trim() ? '#f5f5f5' : '#1677ff',
+                  color: !saveConfigName.trim() ? '#bfbfbf' : '#fff',
+                  border: `1px solid ${!saveConfigName.trim() ? '#d9d9d9' : '#1677ff'}`,
+                  borderRadius: '6px',
+                  padding: '4px 12px',
+                  fontSize: '14px',
+                  cursor: !saveConfigName.trim() ? 'not-allowed' : 'pointer',
+                  transition: 'all 0.2s'
+                }}
+                onMouseEnter={(e) => {
+                  if (saveConfigName.trim()) {
+                    e.currentTarget.style.background = '#4096ff'
+                  }
+                }}
+                onMouseLeave={(e) => {
+                  if (saveConfigName.trim()) {
+                    e.currentTarget.style.background = '#1677ff'
+                  }
+                }}
+              >
+                确认保存
+              </button>
+              <button 
+                onClick={() => setShowSaveInput(false)}
+                style={{ 
+                  background: '#fff',
+                  color: '#595959',
+                  border: '1px solid #d9d9d9',
+                  borderRadius: '6px',
+                  padding: '4px 12px',
+                  fontSize: '14px',
+                  cursor: 'pointer',
+                  transition: 'all 0.2s'
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.color = '#1677ff'
+                  e.currentTarget.style.borderColor = '#1677ff'
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.color = '#595959'
+                  e.currentTarget.style.borderColor = '#d9d9d9'
+                }}
+              >
+                取消
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* 加载配置选择框 */}
+        {showLoadSelect && (
+          <div style={{ marginBottom: '1rem', padding: '0.75rem', background: '#f5f5f5', borderRadius: '4px' }}>
+            <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', marginBottom: '0.5rem' }}>
+              <select
+                value={selectedConfigName}
+                onChange={(e) => setSelectedConfigName(e.target.value)}
+                style={{ flex: 1 }}
+              >
+                <option value="">选择配置</option>
+                {savedConfigs.map(config => (
+                  <option key={config.name} value={config.name}>
+                    {config.name} ({config.configs.length}个基金, {new Date(config.createdAt).toLocaleDateString()})
+                  </option>
+                ))}
+              </select>
+              <button 
+                onClick={loadFundConfig}
+                disabled={!selectedConfigName}
+                style={{ 
+                  background: !selectedConfigName ? '#f5f5f5' : '#1677ff',
+                  color: !selectedConfigName ? '#bfbfbf' : '#fff',
+                  border: `1px solid ${!selectedConfigName ? '#d9d9d9' : '#1677ff'}`,
+                  borderRadius: '6px',
+                  padding: '4px 12px',
+                  fontSize: '14px',
+                  cursor: !selectedConfigName ? 'not-allowed' : 'pointer',
+                  transition: 'all 0.2s'
+                }}
+                onMouseEnter={(e) => {
+                  if (selectedConfigName) {
+                    e.currentTarget.style.background = '#4096ff'
+                  }
+                }}
+                onMouseLeave={(e) => {
+                  if (selectedConfigName) {
+                    e.currentTarget.style.background = '#1677ff'
+                  }
+                }}
+              >
+                确认加载
+              </button>
+              <button 
+                onClick={() => setShowLoadSelect(false)}
+                style={{ 
+                  background: '#fff',
+                  color: '#595959',
+                  border: '1px solid #d9d9d9',
+                  borderRadius: '6px',
+                  padding: '4px 12px',
+                  fontSize: '14px',
+                  cursor: 'pointer',
+                  transition: 'all 0.2s'
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.color = '#1677ff'
+                  e.currentTarget.style.borderColor = '#1677ff'
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.color = '#595959'
+                  e.currentTarget.style.borderColor = '#d9d9d9'
+                }}
+              >
+                取消
+              </button>
+            </div>
+            {/* 已保存配置列表 */}
+            {savedConfigs.length > 0 && (
+              <div style={{ fontSize: '0.85em', color: '#666' }}>
+                <div style={{ marginBottom: '0.25rem', fontWeight: 'bold' }}>已保存的配置：</div>
+                {savedConfigs.map(config => (
+                  <div key={config.name} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.25rem 0' }}>
+                    <span>{config.name} ({config.configs.length}个基金)</span>
+                    <button 
+                      onClick={() => deleteSavedConfig(config.name)}
+                      style={{ 
+                        color: '#ff4d4f',
+                        fontSize: '12px',
+                        padding: '2px 8px',
+                        background: '#fff',
+                        border: '1px solid #ff4d4f',
+                        borderRadius: '4px',
+                        cursor: 'pointer',
+                        transition: 'all 0.2s'
+                      }}
+                      onMouseEnter={(e) => {
+                        e.currentTarget.style.background = '#ff4d4f'
+                        e.currentTarget.style.color = '#fff'
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.background = '#fff'
+                        e.currentTarget.style.color = '#ff4d4f'
+                      }}
+                    >
+                      删除
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
         {fundConfigs.map((config, index) => (
           <div key={index} className="config-item" style={{ marginBottom: '1rem', padding: '0.5rem', border: '1px solid #e0e0e0', borderRadius: '4px' }}>
             <div className="form-group">
