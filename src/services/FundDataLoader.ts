@@ -128,8 +128,8 @@ class FundDataLoader {
 
           this.addLoadedFund(loadedFundData)
 
-          console.log('monthlyData:', monthlyData)
-          console.log('loadedFundData:', loadedFundData)
+          // console.log('monthlyData:', monthlyData)
+          // console.log('loadedFundData:', loadedFundData)
 
           resolve()
         } else {

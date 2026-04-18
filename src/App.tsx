@@ -268,7 +268,7 @@ function App() {
       endDate: income.endDate,
       monthlyIncome: income.income
     }))
-  }, [])
+  }, [simulationResult])
 
   const data = getSimulationData()
 

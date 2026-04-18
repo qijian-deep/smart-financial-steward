@@ -147,7 +147,7 @@ export function OutputSection({
       </div>
 
       {/* 每月资产增长数据 */}
-      {activeView === 'history' && simulationResult && (
+      {/* {activeView === 'history' && simulationResult && (
         <div className="asset-growth-data" style={{ marginBottom: '1rem', background: 'rgba(255,255,255,0.05)', padding: '1rem', borderRadius: '8px' }}>
           <h3 style={{ marginBottom: '0.5rem', fontSize: '0.9em' }}>每月资产增长数据</h3>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '0.75rem', fontSize: '0.8em' }}>
@@ -191,27 +191,38 @@ export function OutputSection({
             ))}
           </div>
         </div>
-      )}
+      )} */}
 
       {/* 风险提示 */}
       {activeView === 'history' && simulationResult && (
         <div className="risk-tips">
           <h3>风险提示</h3>
-          {simulationResult.maxDrawdown.amount > (incomeSegments[0]?.monthlyIncome || 0) * 3 && (
-            <p className="risk-tip">
-              历史上曾亏损{(simulationResult.maxDrawdown.amount / 10000).toFixed(2)}万，相当于{Math.round(simulationResult.maxDrawdown.amount / (incomeSegments[0]?.monthlyIncome || 1))}个月收入，请确认能承受
-            </p>
-          )}
-          {simulationResult.totalReturn.amount < 0 && (
+          {(() => {
+            // 获取最大回撤发生月份的对应收入
+            const drawdownMonth = simulationResult.maxDrawdown.month
+            console.log('drawdownMonth', drawdownMonth)
+            console.log('incomeSegments', incomeSegments)
+            console.log('simulationResult.maxDrawdown', simulationResult.maxDrawdown)
+            const monthIncome = incomeSegments.find(seg => 
+              drawdownMonth >= seg.startDate && drawdownMonth <= seg.endDate
+            )?.monthlyIncome || incomeSegments[0]?.monthlyIncome || 0
+            console.log('monthIncome', monthIncome)
+            return simulationResult.maxDrawdown.amount > monthIncome && monthIncome > 0 && (
+              <p className="risk-tip">
+                历史上曾亏损{(simulationResult.maxDrawdown.amount / 10000).toFixed(2)}万，相当于{Math.round(simulationResult.maxDrawdown.amount / monthIncome)}个月收入，请确认能承受
+              </p>
+            )
+          })()}
+          {/* {simulationResult.totalReturn.amount < 0 && (
             <p className="risk-tip">
               定投结束时仍亏损，建议延长定投时间
             </p>
-          )}
-          {hasNegativeBalance && (
+          )} */}
+          {/* {hasNegativeBalance && (
             <p className="risk-tip">
               活期某月为负，定投总额超可支配收入，建议降低金额
             </p>
-          )}
+          )} */}
         </div>
       )}
 
