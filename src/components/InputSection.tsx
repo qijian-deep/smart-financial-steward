@@ -308,10 +308,76 @@ export function InputSection({
                 onChange={(e) => updateMonthlyIncome(index, 'endDate', e.target.value)}
               />
             </div>
-            <button onClick={() => removeMonthlyIncome(index)} style={{ color: '#ff5722' }}>删除</button>
+            <button 
+              onClick={() => removeMonthlyIncome(index)} 
+              style={{ 
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '4px',
+                padding: '6px 12px',
+                fontSize: '13px',
+                color: '#ff4d4f',
+                background: '#fff',
+                border: '1px solid #ff4d4f',
+                borderRadius: '6px',
+                cursor: 'pointer',
+                transition: 'all 0.2s ease'
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.background = '#ff4d4f'
+                e.currentTarget.style.color = '#fff'
+                e.currentTarget.style.boxShadow = '0 2px 4px rgba(255, 77, 79, 0.3)'
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.background = '#fff'
+                e.currentTarget.style.color = '#ff4d4f'
+                e.currentTarget.style.boxShadow = 'none'
+              }}
+            >
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <polyline points="3 6 5 6 21 6"/>
+                <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
+              </svg>
+              删除
+            </button>
           </div>
         ))}
-        <button onClick={addMonthlyIncome}>+ 添加月收入</button>
+        <button 
+          onClick={addMonthlyIncome}
+          style={{ 
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '6px',
+            padding: '8px 16px',
+            fontSize: '14px',
+            color: '#1677ff',
+            background: '#fff',
+            border: '1px dashed #1677ff',
+            borderRadius: '6px',
+            cursor: 'pointer',
+            transition: 'all 0.2s ease',
+            width: '100%',
+            justifyContent: 'center'
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.background = '#1677ff'
+            e.currentTarget.style.color = '#fff'
+            e.currentTarget.style.borderStyle = 'solid'
+            e.currentTarget.style.boxShadow = '0 2px 4px rgba(22, 119, 255, 0.3)'
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.background = '#fff'
+            e.currentTarget.style.color = '#1677ff'
+            e.currentTarget.style.borderStyle = 'dashed'
+            e.currentTarget.style.boxShadow = 'none'
+          }}
+        >
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <line x1="12" y1="5" x2="12" y2="19"/>
+            <line x1="5" y1="12" x2="19" y2="12"/>
+          </svg>
+          添加月收入
+        </button>
       </div>
 
       {/* 支出配置 */}
@@ -548,24 +614,33 @@ export function InputSection({
                     <button 
                       onClick={() => deleteSavedConfig(config.name)}
                       style={{ 
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '3px',
                         color: '#ff4d4f',
-                        fontSize: '12px',
-                        padding: '2px 8px',
+                        fontSize: '11px',
+                        padding: '3px 8px',
                         background: '#fff',
                         border: '1px solid #ff4d4f',
                         borderRadius: '4px',
                         cursor: 'pointer',
-                        transition: 'all 0.2s'
+                        transition: 'all 0.2s ease'
                       }}
                       onMouseEnter={(e) => {
                         e.currentTarget.style.background = '#ff4d4f'
                         e.currentTarget.style.color = '#fff'
+                        e.currentTarget.style.boxShadow = '0 1px 3px rgba(255, 77, 79, 0.3)'
                       }}
                       onMouseLeave={(e) => {
                         e.currentTarget.style.background = '#fff'
                         e.currentTarget.style.color = '#ff4d4f'
+                        e.currentTarget.style.boxShadow = 'none'
                       }}
                     >
+                      <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <polyline points="3 6 5 6 21 6"/>
+                        <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
+                      </svg>
                       删除
                     </button>
                   </div>
@@ -614,11 +689,80 @@ export function InputSection({
                 onChange={(e) => updateFundConfig(index, 'endDate', e.target.value)}
               />
             </div>
-            <button onClick={() => removeFundConfig(index)} style={{ color: '#ff5722' }}>删除</button>
+            <button 
+              onClick={() => removeFundConfig(index)} 
+              style={{ 
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '4px',
+                padding: '6px 12px',
+                fontSize: '13px',
+                color: '#ff4d4f',
+                background: '#fff',
+                border: '1px solid #ff4d4f',
+                borderRadius: '6px',
+                cursor: 'pointer',
+                transition: 'all 0.2s ease'
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.background = '#ff4d4f'
+                e.currentTarget.style.color = '#fff'
+                e.currentTarget.style.boxShadow = '0 2px 4px rgba(255, 77, 79, 0.3)'
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.background = '#fff'
+                e.currentTarget.style.color = '#ff4d4f'
+                e.currentTarget.style.boxShadow = 'none'
+              }}
+            >
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <polyline points="3 6 5 6 21 6"/>
+                <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
+              </svg>
+              删除
+            </button>
           </div>
         ))}
-        <button onClick={addFundConfig} disabled={availableFunds.length === 0}>
-          + 添加基金配置
+        <button 
+          onClick={addFundConfig} 
+          disabled={availableFunds.length === 0}
+          style={{ 
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '6px',
+            padding: '8px 16px',
+            fontSize: '14px',
+            color: availableFunds.length === 0 ? '#bfbfbf' : '#1677ff',
+            background: '#fff',
+            border: `1px dashed ${availableFunds.length === 0 ? '#d9d9d9' : '#1677ff'}`,
+            borderRadius: '6px',
+            cursor: availableFunds.length === 0 ? 'not-allowed' : 'pointer',
+            transition: 'all 0.2s ease',
+            width: '100%',
+            justifyContent: 'center'
+          }}
+          onMouseEnter={(e) => {
+            if (availableFunds.length > 0) {
+              e.currentTarget.style.background = '#1677ff'
+              e.currentTarget.style.color = '#fff'
+              e.currentTarget.style.borderStyle = 'solid'
+              e.currentTarget.style.boxShadow = '0 2px 4px rgba(22, 119, 255, 0.3)'
+            }
+          }}
+          onMouseLeave={(e) => {
+            if (availableFunds.length > 0) {
+              e.currentTarget.style.background = '#fff'
+              e.currentTarget.style.color = '#1677ff'
+              e.currentTarget.style.borderStyle = 'dashed'
+              e.currentTarget.style.boxShadow = 'none'
+            }
+          }}
+        >
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <line x1="12" y1="5" x2="12" y2="19"/>
+            <line x1="5" y1="12" x2="19" y2="12"/>
+          </svg>
+          添加基金配置
         </button>
       </div>
 
@@ -663,10 +807,76 @@ export function InputSection({
                 onChange={(e) => updateDepositAllocation(index, 'endDate', e.target.value)}
               />
             </div>
-            <button onClick={() => removeDepositAllocation(index)} style={{ color: '#ff5722' }}>删除</button>
+            <button 
+              onClick={() => removeDepositAllocation(index)} 
+              style={{ 
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '4px',
+                padding: '6px 12px',
+                fontSize: '13px',
+                color: '#ff4d4f',
+                background: '#fff',
+                border: '1px solid #ff4d4f',
+                borderRadius: '6px',
+                cursor: 'pointer',
+                transition: 'all 0.2s ease'
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.background = '#ff4d4f'
+                e.currentTarget.style.color = '#fff'
+                e.currentTarget.style.boxShadow = '0 2px 4px rgba(255, 77, 79, 0.3)'
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.background = '#fff'
+                e.currentTarget.style.color = '#ff4d4f'
+                e.currentTarget.style.boxShadow = 'none'
+              }}
+            >
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <polyline points="3 6 5 6 21 6"/>
+                <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
+              </svg>
+              删除
+            </button>
           </div>
         ))}
-        <button onClick={addDepositAllocation}>+ 添加存款配置</button>
+        <button 
+          onClick={addDepositAllocation}
+          style={{ 
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '6px',
+            padding: '8px 16px',
+            fontSize: '14px',
+            color: '#1677ff',
+            background: '#fff',
+            border: '1px dashed #1677ff',
+            borderRadius: '6px',
+            cursor: 'pointer',
+            transition: 'all 0.2s ease',
+            width: '100%',
+            justifyContent: 'center'
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.background = '#1677ff'
+            e.currentTarget.style.color = '#fff'
+            e.currentTarget.style.borderStyle = 'solid'
+            e.currentTarget.style.boxShadow = '0 2px 4px rgba(22, 119, 255, 0.3)'
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.background = '#fff'
+            e.currentTarget.style.color = '#1677ff'
+            e.currentTarget.style.borderStyle = 'dashed'
+            e.currentTarget.style.boxShadow = 'none'
+          }}
+        >
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <line x1="12" y1="5" x2="12" y2="19"/>
+            <line x1="5" y1="12" x2="19" y2="12"/>
+          </svg>
+          添加存款配置
+        </button>
       </div>
 
       {/* 计算按钮 */}
