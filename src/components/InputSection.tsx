@@ -94,7 +94,7 @@ export function InputSection({
   }
 
   // 更新基金配置
-  const updateFundConfig = (index: number, field: keyof FundConfig, value: string | number) => {
+  const updateFundConfig = (index: number, field: keyof FundConfig, value: string | number | null | undefined) => {
     const newConfigs = [...fundConfigs]
     newConfigs[index] = { ...newConfigs[index], [field]: value }
     setFundConfigs(newConfigs)
@@ -706,6 +706,18 @@ export function InputSection({
                 type="month"
                 value={config.endDate}
                 onChange={(e) => updateFundConfig(index, 'endDate', e.target.value)}
+              />
+            </div>
+            <div className="form-group">
+              <label>止盈率 (%)</label>
+              <input
+                type="number"
+                value={config.takeProfitRate ?? ''}
+                onChange={(e) => updateFundConfig(index, 'takeProfitRate', e.target.value === '' ? null : Number(e.target.value))}
+                min={0}
+                max={100}
+                step={1}
+                placeholder="不设置"
               />
             </div>
             <button 

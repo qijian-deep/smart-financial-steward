@@ -273,12 +273,15 @@ class SimulationEngine {
   private calculateFundIncomeForMonth(
     month: string,
     fundAssets: Map<string, number>,
-    fundShares: Map<string, number> = new Map() // 持有份额
-  ): { totalIncome: number; totalDividendIncome: number; updatedAssets: Map<string, number>; fundDetails: import('../types').FundMonthlyData[] } {
+    fundShares: Map<string, number> = new Map(), // 持有份额
+    fundCosts: Map<string, number> = new Map() // 累计投入成本（用于计算止盈）
+  ): { totalIncome: number; totalDividendIncome: number; updatedAssets: Map<string, number>; updatedFundCosts: Map<string, number>; fundDetails: import('../types').FundMonthlyData[]; takeProfitRedemptions: Map<string, number> } {
     let totalIncome = 0
     let totalDividendIncome = 0
     const updatedAssets = new Map(fundAssets)
+    const updatedFundCosts = new Map(fundCosts)
     const fundDetails: import('../types').FundMonthlyData[] = []
+    const takeProfitRedemptions = new Map<string, number>() // 记录止盈赎回金额
 
     for (const config of this.fundConfigs) {
       if (month < config.startDate || month > config.endDate) continue
@@ -297,7 +300,36 @@ class SimulationEngine {
 
       // 月初基金资产 + 当月定投
       const monthStartAssets = updatedAssets.get(fundCode) || 0
-      const monthEndAssets = (monthStartAssets + monthlyInvestment) * growthRate
+      const monthStartCost = updatedFundCosts.get(fundCode) || 0
+
+      // 更新累计投入成本（加上当月定投）
+      const monthEndCost = monthStartCost + monthlyInvestment
+
+      // 计算增长后的资产（未考虑止盈前）
+      const monthEndAssetsBeforeTakeProfit = (monthStartAssets + monthlyInvestment) * growthRate
+
+      // 计算当前收益率
+      const currentReturnRate = monthEndCost > 0 ? (monthEndAssetsBeforeTakeProfit - monthEndCost) / monthEndCost : 0
+
+      // 检查是否达到止盈条件
+      let monthEndAssets = monthEndAssetsBeforeTakeProfit
+      let takeProfitAmount = 0
+      const takeProfitRate = config.takeProfitRate
+
+      if (takeProfitRate !== undefined && takeProfitRate > 0 && currentReturnRate >= takeProfitRate / 100) {
+        // 达到止盈率，赎回盈利部分
+        takeProfitAmount = monthEndAssetsBeforeTakeProfit - monthEndCost
+        if (takeProfitAmount > 0) {
+          monthEndAssets = monthEndCost // 赎回后资产等于成本（本金保留）
+          updatedFundCosts.set(fundCode, monthEndCost) // 成本保持不变
+          takeProfitRedemptions.set(fundCode, takeProfitAmount)
+          console.log(`[止盈赎回] ${month} ${fundCode}: 收益率=${(currentReturnRate * 100).toFixed(2)}%, 达到止盈率${takeProfitRate}%, 赎回金额=${takeProfitAmount.toFixed(2)}, 剩余资产=${monthEndAssets.toFixed(2)}`)
+        } else {
+          updatedFundCosts.set(fundCode, monthEndCost)
+        }
+      } else {
+        updatedFundCosts.set(fundCode, monthEndCost)
+      }
 
       // 当月收益 = 月末资产 - 月初资产（即基金增长额，包含定投的增长）
       const monthIncome = monthEndAssets - monthStartAssets
@@ -333,7 +365,7 @@ class SimulationEngine {
       })
     }
 
-    return { totalIncome, totalDividendIncome, updatedAssets, fundDetails }
+    return { totalIncome, totalDividendIncome, updatedAssets, updatedFundCosts, fundDetails, takeProfitRedemptions }
   }
 
   /**
@@ -394,6 +426,10 @@ class SimulationEngine {
     let cumulativeInvestment = this.initialBalance
     // 基金资产记录（按基金code）
     let fundAssets = new Map<string, number>()
+    // 基金累计投入成本记录（按基金code，用于计算止盈）
+    let fundCosts = new Map<string, number>()
+    // 累计止盈赎回金额
+    let cumulativeTakeProfitRedemptions = 0
     // 累计定投金额
     let totalFundInvestment = 0
     // 累计分红收益
@@ -431,8 +467,16 @@ class SimulationEngine {
       const startAssets = lastMonthTotalAssets
 
       // 计算基金收益（返回基金增长额和分红收益）
-      const { totalIncome: fundGrowthAmount, totalDividendIncome, updatedAssets, fundDetails } = this.calculateFundIncomeForMonth(month, fundAssets)
+      const { totalIncome: fundGrowthAmount, totalDividendIncome, updatedAssets, updatedFundCosts, fundDetails, takeProfitRedemptions } = this.calculateFundIncomeForMonth(month, fundAssets, new Map(), fundCosts)
       fundAssets = updatedAssets
+      fundCosts = updatedFundCosts
+
+      // 累加止盈赎回金额到累计分红收益（类似分红处理）
+      let monthTakeProfitRedemption = 0
+      for (const amount of takeProfitRedemptions.values()) {
+        monthTakeProfitRedemption += amount
+      }
+      cumulativeTakeProfitRedemptions += monthTakeProfitRedemption
 
       // 累加当月分红收益
       cumulativeDividendIncome += totalDividendIncome
@@ -446,9 +490,12 @@ class SimulationEngine {
         totalFundValue += value
       }
 
-      // 总资产 = 基金总市值 + 存款收益 + 累计分红收益
-      // 注意：基金总市值已经包含了定投本金和收益
-      const totalAssets = totalFundValue + depositIncome + cumulativeDividendIncome
+      // 现金部分 = 累计投入 - 累计定投金额（未被投资到基金的部分）
+      const cashValue = cumulativeInvestment - totalFundInvestment
+
+      // 总资产 = 基金总市值 + 现金 + 存款收益 + 累计分红收益 + 累计止盈赎回金额
+      // 注意：基金总市值已经包含了定投本金和收益，止盈赎回金额类似分红已取出
+      const totalAssets = totalFundValue + cashValue + depositIncome + cumulativeDividendIncome + cumulativeTakeProfitRedemptions
 
       // 月末资产
       const endAssets = totalAssets

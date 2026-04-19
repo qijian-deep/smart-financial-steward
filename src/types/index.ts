@@ -27,6 +27,7 @@ export interface FundConfig {
   investmentAmount: number // 每月投资金额
   startDate: string // 开始日期
   endDate: string // 结束日期
+  takeProfitRate?: number // 止盈率（%），当基金收益率达到或超过此值时自动赎回盈利部分
 }
 
 // 月收入类型
