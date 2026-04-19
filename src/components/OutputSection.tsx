@@ -48,12 +48,16 @@ export function OutputSection({
       {
         month: item.month,
         value: item.totalAssets / 10000,
-        type: '组合总资产'
+        type: '组合总资产',
+        totalAssets: item.totalAssets,
+        cumulativeInvestment: item.cumulativeInvestment
       },
       {
         month: item.month,
         value: item.cumulativeInvestment / 10000,
-        type: '累计投入'
+        type: '累计投入',
+        totalAssets: item.totalAssets,
+        cumulativeInvestment: item.cumulativeInvestment
       }
     ])
 
@@ -80,11 +84,28 @@ export function OutputSection({
 
       label: false,
       tooltip: {
-        formatter: (datum) => {
-          return {
-            name: datum.type,
-            value: `${datum.value.toFixed(2)}万元`
-          }
+        customContent: (title, items) => {
+          if (!items || items.length === 0) return ''
+          const datum = items[0].data
+          const returnRate = datum.cumulativeInvestment > 0
+            ? ((datum.totalAssets - datum.cumulativeInvestment) / datum.cumulativeInvestment * 100).toFixed(2)
+            : '0.00'
+          const returnRateColor = parseFloat(returnRate) >= 0 ? '#52c41a' : '#ff4d4f'
+
+          let html = `<div style="font-weight: 600; margin-bottom: 8px; color: #262626;">${title}</div>`
+          items.forEach((item: any) => {
+            const value = typeof item.value === 'number' ? item.value : parseFloat(item.value)
+            html += `<div style="display: flex; align-items: center; margin-bottom: 4px;">
+              <span style="display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: ${item.color}; margin-right: 8px;"></span>
+              <span style="color: #595959;">${item.name}:</span>
+              <span style="margin-left: 8px; font-weight: 500; color: #262626;">${value.toFixed(2)}万元</span>
+            </div>`
+          })
+          html += `<div style="margin-top: 8px; padding-top: 8px; border-top: 1px solid #f0f0f0;">
+            <span style="color: #595959;">组合收益率:</span>
+            <span style="margin-left: 8px; font-weight: 600; color: ${returnRateColor};">${returnRate}%</span>
+          </div>`
+          return html
         },
         domStyles: {
           'g2-tooltip': {
