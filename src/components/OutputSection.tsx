@@ -289,15 +289,20 @@ export function OutputSection({
 
       {/* 风险提示 */}
       {activeView === 'history' && simulationResult && (
-        <div className="risk-tips">
+        <div className={`risk-tips ${simulationResult.maxDrawdown.percent >= 25 ? 'risk-tips-high' : ''}`}>
           <h3>风险提示</h3>
+          {simulationResult.maxDrawdown.percent >= 25 && (
+            <p className="risk-tip-high">
+              最大回撤达到{simulationResult.maxDrawdown.percent.toFixed(2)}%，风险巨大，请注意安全
+            </p>
+          )}
           {(() => {
             // 获取最大回撤发生月份的对应收入
             const drawdownMonth = simulationResult.maxDrawdown.month
             console.log('drawdownMonth', drawdownMonth)
             console.log('incomeSegments', incomeSegments)
             console.log('simulationResult.maxDrawdown', simulationResult.maxDrawdown)
-            const monthIncome = incomeSegments.find(seg => 
+            const monthIncome = incomeSegments.find(seg =>
               drawdownMonth >= seg.startDate && drawdownMonth <= seg.endDate
             )?.monthlyIncome || incomeSegments[0]?.monthlyIncome || 0
             console.log('monthIncome', monthIncome)

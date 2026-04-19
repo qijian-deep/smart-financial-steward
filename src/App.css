@@ -229,7 +229,17 @@ input:focus, select:focus {
   .risk-tip {
     color: #e65100;
   }
-  
+
+  .risk-tip-high {
+    color: #d32f2f;
+    font-weight: 600;
+  }
+
+  .risk-tips-high {
+    background: #ffebee !important;
+    border-left-color: #f44336 !important;
+  }
+
   .disclaimer {
     color: #666666;
   }
