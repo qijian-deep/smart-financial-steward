@@ -388,7 +388,9 @@ class SimulationEngine {
     const months = this.getMonthList()
     const monthlyData: MonthlyData[] = []
 
-    // 累计投入（初始余额）
+    // 累计可支配收入（初始余额 + 每月结余）
+    let cumulativeDisposableIncome = this.initialBalance
+    // 累计投入（实际投入到基金的金额）
     let cumulativeInvestment = this.initialBalance
     // 基金资产记录（按基金code）
     let fundAssets = new Map<string, number>()
@@ -406,14 +408,14 @@ class SimulationEngine {
       const monthlyIncome = this.getMonthlyIncomeForMonth(month)
       // 当月额外支出
       const monthlyExtExpense = this.getMonthlyExtExpense()
+      // 当月可支配收入（月收入 - 月支出 - 额外支出）
+      const monthlyDisposableIncome = monthlyIncome - this.monthlyExpenses - monthlyExtExpense
 
-      // 计算当月累计投入
+      // 计算当月累计可支配收入
       if (i === 0) {
-        // 第一个月：初始余额 + 月收入 - 月支出 - 年额外支出/12
-        cumulativeInvestment = this.initialBalance + monthlyIncome - this.monthlyExpenses - monthlyExtExpense
+        cumulativeDisposableIncome = this.initialBalance + monthlyDisposableIncome
       } else {
-        // 后续月份：上月累计 + 月收入 - 月支出 - 年额外支出/12
-        cumulativeInvestment += monthlyIncome - this.monthlyExpenses - monthlyExtExpense
+        cumulativeDisposableIncome += monthlyDisposableIncome
       }
 
       // 计算当月定投金额
@@ -422,8 +424,11 @@ class SimulationEngine {
         .reduce((sum, config) => sum + config.investmentAmount, 0)
       totalFundInvestment += monthFundInvestment
 
-      // 月初资产 = 上月总资产 + 本月新投入
-      const startAssets = lastMonthTotalAssets + (i === 0 ? cumulativeInvestment - this.initialBalance : monthlyIncome - this.monthlyExpenses - monthlyExtExpense)
+      // 累计投入 = 累计可支配收入（因为定投是从可支配收入中支出的）
+      cumulativeInvestment = cumulativeDisposableIncome
+
+      // 月初资产 = 上月总资产
+      const startAssets = lastMonthTotalAssets
 
       // 计算基金收益（返回基金增长额和分红收益）
       const { totalIncome: fundGrowthAmount, totalDividendIncome, updatedAssets, fundDetails } = this.calculateFundIncomeForMonth(month, fundAssets)
@@ -441,9 +446,9 @@ class SimulationEngine {
         totalFundValue += value
       }
 
-      // 总资产 = 累计投入 + 基金总市值 - 累计定投 + 存款收益 + 累计分红收益
-      // 解释：累计投入已包含所有定投，基金总市值包含定投和收益，所以需要减去累计定投避免重复计算
-      const totalAssets = cumulativeInvestment + totalFundValue - totalFundInvestment + depositIncome + cumulativeDividendIncome
+      // 总资产 = 基金总市值 + 存款收益 + 累计分红收益
+      // 注意：基金总市值已经包含了定投本金和收益
+      const totalAssets = totalFundValue + depositIncome + cumulativeDividendIncome
 
       // 月末资产
       const endAssets = totalAssets

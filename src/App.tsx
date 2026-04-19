@@ -287,7 +287,7 @@ function App() {
   const renderData = {
     fundConfigs: data.fundConfigs.length > 0 ? data.fundConfigs : defaultData.fundConfigs,
     monthlyIncomes: data.monthlyIncomes.length > 0 ? data.monthlyIncomes : defaultData.monthlyIncomes,
-    monthlyExpenses: data.monthlyExpenses || defaultData.monthlyExpenses,
+    monthlyExpenses: data.monthlyExpenses ?? defaultData.monthlyExpenses,
     yearExtExpenses: data.yearExtExpenses.length > 0 ? data.yearExtExpenses : defaultData.yearExtExpenses,
     depositAllocations: data.depositAllocations.length > 0 ? data.depositAllocations : defaultData.depositAllocations,
     initialBalance: data.initialBalance,
