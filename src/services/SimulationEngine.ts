@@ -274,14 +274,42 @@ class SimulationEngine {
     month: string,
     fundAssets: Map<string, number>,
     fundShares: Map<string, number> = new Map(), // 持有份额
-    fundCosts: Map<string, number> = new Map() // 累计投入成本（用于计算止盈）
-  ): { totalIncome: number; totalDividendIncome: number; updatedAssets: Map<string, number>; updatedFundCosts: Map<string, number>; fundDetails: import('../types').FundMonthlyData[]; takeProfitRedemptions: Map<string, number> } {
+    fundCosts: Map<string, number> = new Map(), // 累计投入成本（用于计算止盈）
+    bondFundAssets: Map<string, number> = new Map() // 债券基金资产（用于存放止盈赎回的资金）
+  ): { totalIncome: number; totalDividendIncome: number; updatedAssets: Map<string, number>; updatedFundCosts: Map<string, number>; updatedBondFundAssets: Map<string, number>; fundDetails: import('../types').FundMonthlyData[]; takeProfitRedemptions: Map<string, number>; takeProfitToBondFund: number } {
     let totalIncome = 0
     let totalDividendIncome = 0
     const updatedAssets = new Map(fundAssets)
     const updatedFundCosts = new Map(fundCosts)
+    const updatedBondFundAssets = new Map(bondFundAssets)
     const fundDetails: import('../types').FundMonthlyData[] = []
     const takeProfitRedemptions = new Map<string, number>() // 记录止盈赎回金额
+    let takeProfitToBondFund = 0 // 记录转入债券基金的金额
+
+    // 先找出第一支债券基金（如果有的话）
+    let firstBondFundCode: string | null = null
+    for (const config of this.fundConfigs) {
+      const fundData = fundDataLoader.getFundDataByCode(config.fundCode)
+      const fundName = fundData?.name || ''
+      if (fundName.includes('债券')) {
+        firstBondFundCode = config.fundCode
+        break
+      }
+    }
+
+    // 先计算债券基金的增长（如果有止盈转入的资金）
+    let bondFundIncome = 0
+    if (firstBondFundCode && updatedBondFundAssets.has(firstBondFundCode)) {
+      const bondFundStartValue = updatedBondFundAssets.get(firstBondFundCode) || 0
+      if (bondFundStartValue > 0) {
+        const bondFundGrowthRate = this.getFundGrowthRate(firstBondFundCode, month)
+        const bondFundEndValue = bondFundStartValue * bondFundGrowthRate
+        const bondFundMonthIncome = bondFundEndValue - bondFundStartValue
+        bondFundIncome = bondFundMonthIncome
+        updatedBondFundAssets.set(firstBondFundCode, bondFundEndValue)
+        console.log(`[债券基金收益] ${month} ${firstBondFundCode}: 月初=${bondFundStartValue.toFixed(2)}, 增长率=${bondFundGrowthRate.toFixed(4)}, 月末=${bondFundEndValue.toFixed(2)}, 收益=${bondFundMonthIncome.toFixed(2)}`)
+      }
+    }
 
     for (const config of this.fundConfigs) {
       if (month < config.startDate || month > config.endDate) continue
@@ -317,13 +345,24 @@ class SimulationEngine {
       const takeProfitRate = config.takeProfitRate
 
       if (takeProfitRate !== undefined && takeProfitRate > 0 && currentReturnRate >= takeProfitRate / 100) {
-        // 达到止盈率，赎回盈利部分
-        takeProfitAmount = monthEndAssetsBeforeTakeProfit - monthEndCost
+        // 达到止盈率，全部赎回（整个基金资产）
+        takeProfitAmount = monthEndAssetsBeforeTakeProfit
         if (takeProfitAmount > 0) {
-          monthEndAssets = monthEndCost // 赎回后资产等于成本（本金保留）
-          updatedFundCosts.set(fundCode, monthEndCost) // 成本保持不变
+          monthEndAssets = 0 // 赎回后资产为0
+          updatedFundCosts.set(fundCode, 0) // 成本清零
           takeProfitRedemptions.set(fundCode, takeProfitAmount)
-          console.log(`[止盈赎回] ${month} ${fundCode}: 收益率=${(currentReturnRate * 100).toFixed(2)}%, 达到止盈率${takeProfitRate}%, 赎回金额=${takeProfitAmount.toFixed(2)}, 剩余资产=${monthEndAssets.toFixed(2)}`)
+
+          // 处理赎回的资金：如果有债券基金，转入第一支债券基金；否则按1.5%年化计算收益
+          if (firstBondFundCode) {
+            // 转入债券基金（累加到已有的债券基金资产上）
+            const currentBondFundValue = updatedBondFundAssets.get(firstBondFundCode) || 0
+            updatedBondFundAssets.set(firstBondFundCode, currentBondFundValue + takeProfitAmount)
+            takeProfitToBondFund += takeProfitAmount
+            console.log(`[止盈赎回-转入债券基金] ${month} ${fundCode} -> ${firstBondFundCode}: 收益率=${(currentReturnRate * 100).toFixed(2)}%, 达到止盈率${takeProfitRate}%, 全部赎回金额=${takeProfitAmount.toFixed(2)}, 剩余资产=0`)
+          } else {
+            // 没有债券基金，按1.5%年化计算收益（这里只是记录，实际收益计算在存款收益中处理）
+            console.log(`[止盈赎回-按1.5%年化计息] ${month} ${fundCode}: 收益率=${(currentReturnRate * 100).toFixed(2)}%, 达到止盈率${takeProfitRate}%, 全部赎回金额=${takeProfitAmount.toFixed(2)}, 剩余资产=0`)
+          }
         } else {
           updatedFundCosts.set(fundCode, monthEndCost)
         }
@@ -365,7 +404,10 @@ class SimulationEngine {
       })
     }
 
-    return { totalIncome, totalDividendIncome, updatedAssets, updatedFundCosts, fundDetails, takeProfitRedemptions }
+    // 将债券基金收益加入总收入
+    totalIncome += bondFundIncome
+
+    return { totalIncome, totalDividendIncome, updatedAssets, updatedFundCosts, updatedBondFundAssets, fundDetails, takeProfitRedemptions, takeProfitToBondFund }
   }
 
   /**
@@ -428,7 +470,11 @@ class SimulationEngine {
     let fundAssets = new Map<string, number>()
     // 基金累计投入成本记录（按基金code，用于计算止盈）
     let fundCosts = new Map<string, number>()
-    // 累计止盈赎回金额
+    // 债券基金资产记录（用于存放止盈赎回的资金）
+    let bondFundAssets = new Map<string, number>()
+    // 无债券基金时的止盈赎回资金（按1.5%年化计息）
+    let takeProfitCashWithoutBondFund = 0
+    // 累计止盈赎回金额（不含转入债券基金的部分）
     let cumulativeTakeProfitRedemptions = 0
     // 累计定投金额
     let totalFundInvestment = 0
@@ -436,6 +482,17 @@ class SimulationEngine {
     let cumulativeDividendIncome = 0
     // 上月总资产
     let lastMonthTotalAssets = this.initialBalance
+
+    // 先检查是否有债券基金
+    let hasBondFund = false
+    for (const config of this.fundConfigs) {
+      const fundData = fundDataLoader.getFundDataByCode(config.fundCode)
+      const fundName = fundData?.name || ''
+      if (fundName.includes('债券')) {
+        hasBondFund = true
+        break
+      }
+    }
 
     for (let i = 0; i < months.length; i++) {
       const month = months[i]
@@ -466,15 +523,31 @@ class SimulationEngine {
       // 月初资产 = 上月总资产
       const startAssets = lastMonthTotalAssets
 
+      // 计算无债券基金时的止盈赎回资金收益（1.5%年化）
+      let takeProfitCashIncome = 0
+      if (!hasBondFund && takeProfitCashWithoutBondFund > 0) {
+        // 月利率 = 1.5% / 12
+        const monthlyRate = 0.015 / 12
+        takeProfitCashIncome = takeProfitCashWithoutBondFund * monthlyRate
+        cumulativeDividendIncome += takeProfitCashIncome
+      }
+
       // 计算基金收益（返回基金增长额和分红收益）
-      const { totalIncome: fundGrowthAmount, totalDividendIncome, updatedAssets, updatedFundCosts, fundDetails, takeProfitRedemptions } = this.calculateFundIncomeForMonth(month, fundAssets, new Map(), fundCosts)
+      const { totalIncome: fundGrowthAmount, totalDividendIncome, updatedAssets, updatedFundCosts, updatedBondFundAssets, fundDetails, takeProfitRedemptions, takeProfitToBondFund } = this.calculateFundIncomeForMonth(month, fundAssets, new Map(), fundCosts, bondFundAssets)
       fundAssets = updatedAssets
       fundCosts = updatedFundCosts
+      bondFundAssets = updatedBondFundAssets
 
-      // 累加止盈赎回金额到累计分红收益（类似分红处理）
+      // 累加止盈赎回金额（不含转入债券基金的部分）
       let monthTakeProfitRedemption = 0
       for (const amount of takeProfitRedemptions.values()) {
         monthTakeProfitRedemption += amount
+      }
+      // 减去转入债券基金的部分，因为这部分已经计入债券基金资产
+      monthTakeProfitRedemption -= takeProfitToBondFund
+      if (!hasBondFund) {
+        // 如果没有债券基金，将止盈赎回资金加入计息本金
+        takeProfitCashWithoutBondFund += monthTakeProfitRedemption
       }
       cumulativeTakeProfitRedemptions += monthTakeProfitRedemption
 
@@ -484,18 +557,24 @@ class SimulationEngine {
       // 计算存款收益
       const depositIncome = this.calculateDepositIncomeForMonth(month)
 
-      // 计算基金总市值
+      // 计算基金总市值（普通基金）
       let totalFundValue = 0
       for (const value of fundAssets.values()) {
         totalFundValue += value
       }
 
+      // 计算债券基金市值
+      let totalBondFundValue = 0
+      for (const value of bondFundAssets.values()) {
+        totalBondFundValue += value
+      }
+
       // 现金部分 = 累计投入 - 累计定投金额（未被投资到基金的部分）
       const cashValue = cumulativeInvestment - totalFundInvestment
 
-      // 总资产 = 基金总市值 + 现金 + 存款收益 + 累计分红收益 + 累计止盈赎回金额
+      // 总资产 = 普通基金市值 + 债券基金市值 + 现金 + 存款收益 + 累计分红收益 + 累计止盈赎回金额（不含债券基金部分）
       // 注意：基金总市值已经包含了定投本金和收益，止盈赎回金额类似分红已取出
-      const totalAssets = totalFundValue + cashValue + depositIncome + cumulativeDividendIncome + cumulativeTakeProfitRedemptions
+      const totalAssets = totalFundValue + totalBondFundValue + cashValue + depositIncome + cumulativeDividendIncome + cumulativeTakeProfitRedemptions
 
       // 月末资产
       const endAssets = totalAssets
