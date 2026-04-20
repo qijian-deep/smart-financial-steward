@@ -275,13 +275,15 @@ class SimulationEngine {
     fundAssets: Map<string, number>,
     fundShares: Map<string, number> = new Map(), // 持有份额
     fundCosts: Map<string, number> = new Map(), // 累计投入成本（用于计算止盈）
-    bondFundAssets: Map<string, number> = new Map() // 债券基金资产（用于存放止盈赎回的资金）
-  ): { totalIncome: number; totalDividendIncome: number; updatedAssets: Map<string, number>; updatedFundCosts: Map<string, number>; updatedBondFundAssets: Map<string, number>; fundDetails: import('../types').FundMonthlyData[]; takeProfitRedemptions: Map<string, number>; takeProfitToBondFund: number } {
+    bondFundAssets: Map<string, number> = new Map(), // 债券基金资产（用于存放止盈赎回的资金）
+    reinvestStates: Map<string, { remainingMonths: number; monthlyAmount: number }> = new Map() // 重投入状态
+  ): { totalIncome: number; totalDividendIncome: number; updatedAssets: Map<string, number>; updatedFundCosts: Map<string, number>; updatedBondFundAssets: Map<string, number>; fundDetails: import('../types').FundMonthlyData[]; takeProfitRedemptions: Map<string, number>; takeProfitToBondFund: number; updatedReinvestStates: Map<string, { remainingMonths: number; monthlyAmount: number }> } {
     let totalIncome = 0
     let totalDividendIncome = 0
     const updatedAssets = new Map(fundAssets)
     const updatedFundCosts = new Map(fundCosts)
     const updatedBondFundAssets = new Map(bondFundAssets)
+    const updatedReinvestStates = new Map(reinvestStates)
     const fundDetails: import('../types').FundMonthlyData[] = []
     const takeProfitRedemptions = new Map<string, number>() // 记录止盈赎回金额
     let takeProfitToBondFund = 0 // 记录转入债券基金的金额
@@ -314,7 +316,7 @@ class SimulationEngine {
       if (month < config.startDate || month > config.endDate) continue
 
       const fundCode = config.fundCode
-      const monthlyInvestment = config.investmentAmount
+      const baseMonthlyInvestment = config.investmentAmount
       const growthRate = this.getFundGrowthRate(fundCode, month)
       const totalDividend = this.getFundTotalDividend(fundCode, month)
 
@@ -325,15 +327,29 @@ class SimulationEngine {
       const fundData = fundDataLoader.getFundDataByCode(fundCode)
       const currentNav = fundData?.data?.[month]?.endNav || 1
 
-      // 月初基金资产 + 当月定投
+      // 月初基金资产
       const monthStartAssets = updatedAssets.get(fundCode) || 0
       const monthStartCost = updatedFundCosts.get(fundCode) || 0
 
+      // 计算当月实际定投金额（基础定投 + 重投入金额）
+      let actualMonthlyInvestment = baseMonthlyInvestment
+      const reinvestState = updatedReinvestStates.get(fundCode)
+      if (reinvestState && reinvestState.remainingMonths > 0) {
+        actualMonthlyInvestment += reinvestState.monthlyAmount
+        // 减少剩余月份
+        reinvestState.remainingMonths--
+        if (reinvestState.remainingMonths <= 0) {
+          updatedReinvestStates.delete(fundCode)
+        } else {
+          updatedReinvestStates.set(fundCode, reinvestState)
+        }
+      }
+
       // 更新累计投入成本（加上当月定投）
-      const monthEndCost = monthStartCost + monthlyInvestment
+      const monthEndCost = monthStartCost + actualMonthlyInvestment
 
       // 计算增长后的资产（未考虑止盈前）
-      const monthEndAssetsBeforeTakeProfit = (monthStartAssets + monthlyInvestment) * growthRate
+      const monthEndAssetsBeforeTakeProfit = (monthStartAssets + actualMonthlyInvestment) * growthRate
 
       // 计算当前收益率
       const currentReturnRate = monthEndCost > 0 ? (monthEndAssetsBeforeTakeProfit - monthEndCost) / monthEndCost : 0
@@ -350,6 +366,18 @@ class SimulationEngine {
           monthEndAssets = 0 // 赎回后资产为0
           updatedFundCosts.set(fundCode, 0) // 成本清零
           takeProfitRedemptions.set(fundCode, takeProfitAmount)
+
+          // 检查是否有设置重投入分期
+          const reinvestPeriod = config.takeProfitReinvestPeriod
+          if (reinvestPeriod !== undefined && reinvestPeriod > 0) {
+            // 计算每月重投入金额
+            const monthlyReinvestAmount = takeProfitAmount / reinvestPeriod
+            // 设置重投入状态
+            updatedReinvestStates.set(fundCode, {
+              remainingMonths: reinvestPeriod,
+              monthlyAmount: monthlyReinvestAmount
+            })
+          }
 
           // 处理赎回的资金：如果有债券基金，转入第一支债券基金；否则按1.5%年化计算收益
           if (firstBondFundCode) {
@@ -378,8 +406,6 @@ class SimulationEngine {
       const dividendIncome = monthlyDividend * shares
       totalDividendIncome += dividendIncome
 
-
-
       updatedAssets.set(fundCode, monthEndAssets)
 
       // 获取基金名称
@@ -393,7 +419,7 @@ class SimulationEngine {
         endAssets: monthEndAssets,
         growthRate,
         growthAmount: monthIncome,
-        investmentAmount: monthlyInvestment,
+        investmentAmount: actualMonthlyInvestment,
         dividendIncome
       })
     }
@@ -401,7 +427,7 @@ class SimulationEngine {
     // 将债券基金收益加入总收入
     totalIncome += bondFundIncome
 
-    return { totalIncome, totalDividendIncome, updatedAssets, updatedFundCosts, updatedBondFundAssets, fundDetails, takeProfitRedemptions, takeProfitToBondFund }
+    return { totalIncome, totalDividendIncome, updatedAssets, updatedFundCosts, updatedBondFundAssets, fundDetails, takeProfitRedemptions, takeProfitToBondFund, updatedReinvestStates }
   }
 
   /**
@@ -476,6 +502,8 @@ class SimulationEngine {
     let cumulativeDividendIncome = 0
     // 上月总资产
     let lastMonthTotalAssets = this.initialBalance
+    // 止盈重投入状态（按基金code）
+    let reinvestStates = new Map<string, { remainingMonths: number; monthlyAmount: number }>()
 
     // 先检查是否有债券基金
     let hasBondFund = false
@@ -505,10 +533,19 @@ class SimulationEngine {
         cumulativeDisposableIncome += monthlyDisposableIncome
       }
 
-      // 计算当月定投金额
-      const monthFundInvestment = this.fundConfigs
-        .filter(config => month >= config.startDate && month <= config.endDate)
-        .reduce((sum, config) => sum + config.investmentAmount, 0)
+      // 计算当月定投金额（基础定投 + 重投入金额）
+      let monthFundInvestment = 0
+      for (const config of this.fundConfigs) {
+        if (month >= config.startDate && month <= config.endDate) {
+          let actualInvestment = config.investmentAmount
+          // 加上重投入金额
+          const reinvestState = reinvestStates.get(config.fundCode)
+          if (reinvestState && reinvestState.remainingMonths > 0) {
+            actualInvestment += reinvestState.monthlyAmount
+          }
+          monthFundInvestment += actualInvestment
+        }
+      }
       totalFundInvestment += monthFundInvestment
 
       // 累计投入 = 累计可支配收入（因为定投是从可支配收入中支出的）
@@ -527,10 +564,11 @@ class SimulationEngine {
       }
 
       // 计算基金收益（返回基金增长额和分红收益）
-      const { totalIncome: fundGrowthAmount, totalDividendIncome, updatedAssets, updatedFundCosts, updatedBondFundAssets, fundDetails, takeProfitRedemptions, takeProfitToBondFund } = this.calculateFundIncomeForMonth(month, fundAssets, new Map(), fundCosts, bondFundAssets)
+      const { totalIncome: fundGrowthAmount, totalDividendIncome, updatedAssets, updatedFundCosts, updatedBondFundAssets, fundDetails, takeProfitRedemptions, takeProfitToBondFund, updatedReinvestStates } = this.calculateFundIncomeForMonth(month, fundAssets, new Map(), fundCosts, bondFundAssets, reinvestStates)
       fundAssets = updatedAssets
       fundCosts = updatedFundCosts
       bondFundAssets = updatedBondFundAssets
+      reinvestStates = updatedReinvestStates
 
       // 累加止盈赎回金额（不含转入债券基金的部分）
       let monthTakeProfitRedemption = 0

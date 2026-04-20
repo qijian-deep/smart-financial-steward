@@ -720,6 +720,18 @@ export function InputSection({
                 placeholder="不设置"
               />
             </div>
+            <div className="form-group">
+              <label>重投入分期（月）</label>
+              <input
+                type="number"
+                value={config.takeProfitReinvestPeriod ?? ''}
+                onChange={(e) => updateFundConfig(index, 'takeProfitReinvestPeriod', e.target.value === '' ? null : Number(e.target.value))}
+                min={1}
+                max={120}
+                step={1}
+                placeholder="不分期"
+              />
+            </div>
             <button 
               onClick={() => removeFundConfig(index)} 
               style={{ 
