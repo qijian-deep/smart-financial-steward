@@ -128,9 +128,6 @@ class FundDataLoader {
 
           this.addLoadedFund(loadedFundData)
 
-          // console.log('monthlyData:', monthlyData)
-          // console.log('loadedFundData:', loadedFundData)
-
           resolve()
         } else {
           reject(new Error('未找到基金数据'))

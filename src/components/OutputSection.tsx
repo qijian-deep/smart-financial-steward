@@ -299,13 +299,9 @@ export function OutputSection({
           {(() => {
             // 获取最大回撤发生月份的对应收入
             const drawdownMonth = simulationResult.maxDrawdown.month
-            console.log('drawdownMonth', drawdownMonth)
-            console.log('incomeSegments', incomeSegments)
-            console.log('simulationResult.maxDrawdown', simulationResult.maxDrawdown)
             const monthIncome = incomeSegments.find(seg =>
               drawdownMonth >= seg.startDate && drawdownMonth <= seg.endDate
             )?.monthlyIncome || incomeSegments[0]?.monthlyIncome || 0
-            console.log('monthIncome', monthIncome)
             return simulationResult.maxDrawdown.amount > monthIncome && monthIncome > 0 && (
               <p className="risk-tip">
                 历史上曾亏损{(simulationResult.maxDrawdown.amount / 10000).toFixed(2)}万，相当于{Math.round(simulationResult.maxDrawdown.amount / monthIncome)}个月收入，请确认能承受

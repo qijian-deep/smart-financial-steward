@@ -58,7 +58,16 @@ function App() {
 
   // 模拟结果状态
   const [simulationResult, setSimulationResult] = useState<SimulationResult | null>(null)
-  const [, forceUpdate] = useState({})
+
+  // 本地状态，用于强制重新渲染 InputSection
+  const [localFundConfigs, setLocalFundConfigs] = useState<FundConfig[]>([])
+  const [localMonthlyIncomes, setLocalMonthlyIncomes] = useState<MonthlyIncome[]>([])
+  const [localMonthlyExpenses, setLocalMonthlyExpenses] = useState<number>(5000)
+  const [localYearExtExpenses, setLocalYearExtExpenses] = useState<number[]>([])
+  const [localDepositAllocations, setLocalDepositAllocations] = useState<DepositAllocation[]>([])
+  const [localInitialBalance, setLocalInitialBalance] = useState<number>(10000)
+  const [localMockStartDate, setLocalMockStartDate] = useState<string>('2016-03')
+  const [localMockEndDate, setLocalMockEndDate] = useState<string>('2026-03')
 
   // 模拟参数状态
   const [simulationParams, setSimulationParams] = useState<SimulationParams>({
@@ -92,16 +101,20 @@ function App() {
         // 初始化 simulationEngine 的默认日期
         simulationEngine.setMockStartDate('2016-03')
         simulationEngine.setMockEndDate('2026-03')
+        setLocalMockStartDate('2016-03')
+        setLocalMockEndDate('2026-03')
         // 初始化默认月收入
         simulationEngine.setMonthlyIncomes([{ income: 10000, startDate: '2016-03', endDate: '2026-03' }])
+        setLocalMonthlyIncomes([{ income: 10000, startDate: '2016-03', endDate: '2026-03' }])
         // 初始化默认月支出
         simulationEngine.setMonthlyExpenses(5000)
+        setLocalMonthlyExpenses(5000)
         // 初始化默认初始余额
         simulationEngine.setInitialBalance(10000)
+        setLocalInitialBalance(10000)
       }
-      
+
       hasLoadedFromStorage.current = true
-      forceUpdate({})
     }
 
     // 订阅模拟引擎的结果变化
@@ -116,13 +129,14 @@ function App() {
       if (funds.length > 0 && simulationEngine.getFundConfigs().length === 0) {
         const startDate = simulationEngine.getMockStartDate() || '2016-03'
         const endDate = simulationEngine.getMockEndDate() || '2026-03'
-        simulationEngine.setFundConfigs([{
+        const newConfig = {
           fundCode: funds[0].code,
           investmentAmount: 5000,
           startDate,
           endDate
-        }])
-        forceUpdate({})
+        }
+        simulationEngine.setFundConfigs([newConfig])
+        setLocalFundConfigs([newConfig])
       }
     })
 
@@ -191,46 +205,77 @@ function App() {
   // 设置器方法
   const setFundConfigs = useCallback((configs: FundConfig[]) => {
     simulationEngine.setFundConfigs(configs)
-    forceUpdate({})
+    setLocalFundConfigs(configs)
     saveToLocalStorage()
   }, [saveToLocalStorage])
 
   const setMonthlyIncomes = useCallback((incomes: MonthlyIncome[]) => {
     simulationEngine.setMonthlyIncomes(incomes)
-    forceUpdate({})
+    setLocalMonthlyIncomes(incomes)
     saveToLocalStorage()
   }, [saveToLocalStorage])
 
   const setMonthlyExpenses = useCallback((value: number) => {
     simulationEngine.setMonthlyExpenses(value)
-    forceUpdate({})
+    setLocalMonthlyExpenses(value)
     saveToLocalStorage()
   }, [saveToLocalStorage])
 
   const setYearExtExpenses = useCallback((expenses: number[]) => {
     simulationEngine.setYearExtExpenses(expenses)
-    forceUpdate({})
+    setLocalYearExtExpenses(expenses)
     saveToLocalStorage()
   }, [saveToLocalStorage])
 
   const setDepositAllocations = useCallback((allocations: DepositAllocation[]) => {
     simulationEngine.setDepositAllocations(allocations)
-    forceUpdate({})
+    setLocalDepositAllocations(allocations)
     saveToLocalStorage()
   }, [saveToLocalStorage])
 
   const setInitialBalance = useCallback((value: number) => {
     simulationEngine.setInitialBalance(value)
-    forceUpdate({})
+    setLocalInitialBalance(value)
     saveToLocalStorage()
   }, [saveToLocalStorage])
 
   const setMockDateRange = useCallback((startDate: string, endDate: string) => {
     simulationEngine.setMockStartDate(startDate)
     simulationEngine.setMockEndDate(endDate)
-    forceUpdate({})
+    setLocalMockStartDate(startDate)
+    setLocalMockEndDate(endDate)
     saveToLocalStorage()
   }, [saveToLocalStorage])
+
+  // 重置所有缓存
+  const resetCache = useCallback(() => {
+    // 删除 localStorage 中的缓存
+    localStorage.removeItem('smart_financial_steward_fund_codes')
+    localStorage.removeItem('smartFinancialSteward_inputData')
+    localStorage.removeItem('smartfinancialsteward_fund_config_presets')
+
+    // 重置 simulationEngine
+    simulationEngine.setFundConfigs([])
+    simulationEngine.setMonthlyIncomes([{ income: 10000, startDate: '2016-03', endDate: '2026-03' }])
+    simulationEngine.setMonthlyExpenses(5000)
+    simulationEngine.setYearExtExpenses([])
+    simulationEngine.setDepositAllocations([])
+    simulationEngine.setInitialBalance(10000)
+    simulationEngine.setMockStartDate('2016-03')
+    simulationEngine.setMockEndDate('2026-03')
+
+    // 重置本地状态
+    setLocalFundConfigs([])
+    setLocalMonthlyIncomes([{ income: 10000, startDate: '2016-03', endDate: '2026-03' }])
+    setLocalMonthlyExpenses(5000)
+    setLocalYearExtExpenses([])
+    setLocalDepositAllocations([])
+    setLocalInitialBalance(10000)
+    setLocalMockStartDate('2016-03')
+    setLocalMockEndDate('2026-03')
+
+    alert('缓存已重置')
+  }, [])
 
   // 触发计算
   const triggerCalculation = useCallback(() => {
@@ -258,19 +303,16 @@ function App() {
 
   // 收入分段（用于显示）
   const incomeSegments = useMemo<IncomeSegment[]>(() => {
-    const data = getSimulationData()
-    if (data.monthlyIncomes.length === 0) return []
-    
-    return data.monthlyIncomes.map((income, index) => ({
+    if (localMonthlyIncomes.length === 0) return []
+
+    return localMonthlyIncomes.map((income, index) => ({
       id: index,
       name: `收入阶段 ${index + 1}`,
       startDate: income.startDate,
       endDate: income.endDate,
       monthlyIncome: income.income
     }))
-  }, [simulationResult])
-
-  const data = getSimulationData()
+  }, [localMonthlyIncomes])
 
   // 默认数据
   const defaultData = {
@@ -285,19 +327,24 @@ function App() {
   }
 
   const renderData = {
-    fundConfigs: data.fundConfigs.length > 0 ? data.fundConfigs : defaultData.fundConfigs,
-    monthlyIncomes: data.monthlyIncomes.length > 0 ? data.monthlyIncomes : defaultData.monthlyIncomes,
-    monthlyExpenses: data.monthlyExpenses ?? defaultData.monthlyExpenses,
-    yearExtExpenses: data.yearExtExpenses.length > 0 ? data.yearExtExpenses : defaultData.yearExtExpenses,
-    depositAllocations: data.depositAllocations.length > 0 ? data.depositAllocations : defaultData.depositAllocations,
-    initialBalance: data.initialBalance,
-    mockStartDate: data.mockStartDate || defaultData.mockStartDate,
-    mockEndDate: data.mockEndDate || defaultData.mockEndDate
+    fundConfigs: localFundConfigs.length > 0 ? localFundConfigs : defaultData.fundConfigs,
+    monthlyIncomes: localMonthlyIncomes.length > 0 ? localMonthlyIncomes : defaultData.monthlyIncomes,
+    monthlyExpenses: localMonthlyExpenses ?? defaultData.monthlyExpenses,
+    yearExtExpenses: localYearExtExpenses.length > 0 ? localYearExtExpenses : defaultData.yearExtExpenses,
+    depositAllocations: localDepositAllocations.length > 0 ? localDepositAllocations : defaultData.depositAllocations,
+    initialBalance: localInitialBalance,
+    mockStartDate: localMockStartDate || defaultData.mockStartDate,
+    mockEndDate: localMockEndDate || defaultData.mockEndDate
   }
 
   return (
     <div className="app">
-      <h1>智能财务规划助手</h1>
+      <div className="app-header">
+        <h1>智能财务规划助手</h1>
+        <button className="reset-cache-btn" onClick={resetCache}>
+          重置缓存
+        </button>
+      </div>
 
       <div className="container">
         <InputSection

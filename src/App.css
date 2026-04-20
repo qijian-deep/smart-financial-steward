@@ -13,8 +13,31 @@ h1 {
   font-size: 1.5em;
   line-height: 1.1;
   text-align: center;
-  margin-bottom: 1rem;
+  margin-bottom: 0;
   color: #646cff;
+}
+
+.app-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+  padding: 0 0.5rem;
+}
+
+.reset-cache-btn {
+  padding: 0.5rem 1rem;
+  font-size: 0.875rem;
+  background-color: #ff4444;
+  color: white;
+  border: none;
+  border-radius: 0.375rem;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.reset-cache-btn:hover {
+  background-color: #cc0000;
 }
 
 .container {

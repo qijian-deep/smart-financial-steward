@@ -307,7 +307,6 @@ class SimulationEngine {
         const bondFundMonthIncome = bondFundEndValue - bondFundStartValue
         bondFundIncome = bondFundMonthIncome
         updatedBondFundAssets.set(firstBondFundCode, bondFundEndValue)
-        console.log(`[债券基金收益] ${month} ${firstBondFundCode}: 月初=${bondFundStartValue.toFixed(2)}, 增长率=${bondFundGrowthRate.toFixed(4)}, 月末=${bondFundEndValue.toFixed(2)}, 收益=${bondFundMonthIncome.toFixed(2)}`)
       }
     }
 
@@ -358,10 +357,8 @@ class SimulationEngine {
             const currentBondFundValue = updatedBondFundAssets.get(firstBondFundCode) || 0
             updatedBondFundAssets.set(firstBondFundCode, currentBondFundValue + takeProfitAmount)
             takeProfitToBondFund += takeProfitAmount
-            console.log(`[止盈赎回-转入债券基金] ${month} ${fundCode} -> ${firstBondFundCode}: 收益率=${(currentReturnRate * 100).toFixed(2)}%, 达到止盈率${takeProfitRate}%, 全部赎回金额=${takeProfitAmount.toFixed(2)}, 剩余资产=0`)
           } else {
             // 没有债券基金，按1.5%年化计算收益（这里只是记录，实际收益计算在存款收益中处理）
-            console.log(`[止盈赎回-按1.5%年化计息] ${month} ${fundCode}: 收益率=${(currentReturnRate * 100).toFixed(2)}%, 达到止盈率${takeProfitRate}%, 全部赎回金额=${takeProfitAmount.toFixed(2)}, 剩余资产=0`)
           }
         } else {
           updatedFundCosts.set(fundCode, monthEndCost)
@@ -381,10 +378,7 @@ class SimulationEngine {
       const dividendIncome = monthlyDividend * shares
       totalDividendIncome += dividendIncome
 
-      // 打印分红信息（只在当月有分红时打印）
-      if (monthlyDividend > 0) {
-        console.log(`[分红] ${month} ${fundCode}: 当月分红=${monthlyDividend.toFixed(4)}, 月初净值=${startNav.toFixed(4)}, 份额=${shares.toFixed(2)}, 分红收益=${dividendIncome.toFixed(2)}, 月初资产=${monthStartAssets.toFixed(2)}`)
-      }
+
 
       updatedAssets.set(fundCode, monthEndAssets)
 
