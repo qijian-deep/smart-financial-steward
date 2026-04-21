@@ -12,6 +12,7 @@ const STORAGE_KEY = 'smartFinancialSteward_inputData'
 
 // 从 localStorage 加载数据（独立函数，不依赖 React）
 function loadInputDataFromStorage(): {
+  fundCodeInput: string | null
   fundConfigs: FundConfig[] | null
   monthlyIncomes: MonthlyIncome[] | null
   monthlyExpenses: number | null
@@ -20,12 +21,14 @@ function loadInputDataFromStorage(): {
   initialBalance: number | null
   mockStartDate: string | null
   mockEndDate: string | null
+  shiftYears: number | null
 } {
   try {
     const savedData = localStorage.getItem(STORAGE_KEY)
     if (savedData) {
       const parsed = JSON.parse(savedData)
       return {
+        fundCodeInput: parsed.fundCodeInput || null,
         fundConfigs: parsed.fundConfigs || null,
         monthlyIncomes: parsed.monthlyIncomes || null,
         monthlyExpenses: parsed.monthlyExpenses !== undefined ? parsed.monthlyExpenses : null,
@@ -33,13 +36,15 @@ function loadInputDataFromStorage(): {
         depositAllocations: parsed.depositAllocations || null,
         initialBalance: parsed.initialBalance !== undefined ? parsed.initialBalance : null,
         mockStartDate: parsed.mockStartDate || null,
-        mockEndDate: parsed.mockEndDate || null
+        mockEndDate: parsed.mockEndDate || null,
+        shiftYears: parsed.shiftYears !== undefined ? parsed.shiftYears : null
       }
     }
   } catch (error) {
     console.error('Failed to load data from localStorage:', error)
   }
   return {
+    fundCodeInput: null,
     fundConfigs: null,
     monthlyIncomes: null,
     monthlyExpenses: null,
@@ -47,7 +52,8 @@ function loadInputDataFromStorage(): {
     depositAllocations: null,
     initialBalance: null,
     mockStartDate: null,
-    mockEndDate: null
+    mockEndDate: null,
+    shiftYears: null
   }
 }
 
@@ -87,14 +93,42 @@ function App() {
       const savedData = loadInputDataFromStorage()
       
       // 应用加载的数据
-      if (savedData.fundConfigs) simulationEngine.setFundConfigs(savedData.fundConfigs)
-      if (savedData.monthlyIncomes) simulationEngine.setMonthlyIncomes(savedData.monthlyIncomes)
-      if (savedData.monthlyExpenses !== null) simulationEngine.setMonthlyExpenses(savedData.monthlyExpenses)
-      if (savedData.yearExtExpenses) simulationEngine.setYearExtExpenses(savedData.yearExtExpenses)
-      if (savedData.depositAllocations) simulationEngine.setDepositAllocations(savedData.depositAllocations)
-      if (savedData.initialBalance !== null) simulationEngine.setInitialBalance(savedData.initialBalance)
-      if (savedData.mockStartDate) simulationEngine.setMockStartDate(savedData.mockStartDate)
-      if (savedData.mockEndDate) simulationEngine.setMockEndDate(savedData.mockEndDate)
+      if (savedData.fundCodeInput) setFundCodeInput(savedData.fundCodeInput)
+      if (savedData.fundConfigs) {
+        simulationEngine.setFundConfigs(savedData.fundConfigs)
+        setLocalFundConfigs(savedData.fundConfigs)
+      }
+      if (savedData.monthlyIncomes) {
+        simulationEngine.setMonthlyIncomes(savedData.monthlyIncomes)
+        setLocalMonthlyIncomes(savedData.monthlyIncomes)
+      }
+      if (savedData.monthlyExpenses !== null) {
+        simulationEngine.setMonthlyExpenses(savedData.monthlyExpenses)
+        setLocalMonthlyExpenses(savedData.monthlyExpenses)
+      }
+      if (savedData.yearExtExpenses) {
+        simulationEngine.setYearExtExpenses(savedData.yearExtExpenses)
+        setLocalYearExtExpenses(savedData.yearExtExpenses)
+      }
+      if (savedData.depositAllocations) {
+        simulationEngine.setDepositAllocations(savedData.depositAllocations)
+        setLocalDepositAllocations(savedData.depositAllocations)
+      }
+      if (savedData.initialBalance !== null) {
+        simulationEngine.setInitialBalance(savedData.initialBalance)
+        setLocalInitialBalance(savedData.initialBalance)
+      }
+      if (savedData.mockStartDate) {
+        simulationEngine.setMockStartDate(savedData.mockStartDate)
+        setLocalMockStartDate(savedData.mockStartDate)
+      }
+      if (savedData.mockEndDate) {
+        simulationEngine.setMockEndDate(savedData.mockEndDate)
+        setLocalMockEndDate(savedData.mockEndDate)
+      }
+      if (savedData.shiftYears !== null) {
+        setSimulationParams(prev => ({ ...prev, shiftYears: savedData.shiftYears! }))
+      }
       
       // 如果没有保存的数据，则使用默认值
       const hasAnySavedData = Object.values(savedData).some(v => v !== null)
@@ -188,10 +222,11 @@ function App() {
     }
   }, [])
 
-  // 保存数据到 localStorage
-  const saveToLocalStorage = useCallback(() => {
+  // 保存数据到 localStorage (通用函数)
+  const saveDataToStorage = useCallback(() => {
     const data = getSimulationData()
     const dataToSave = {
+      fundCodeInput: fundCodeInput,
       fundConfigs: data.fundConfigs,
       monthlyIncomes: data.monthlyIncomes,
       monthlyExpenses: data.monthlyExpenses,
@@ -199,10 +234,16 @@ function App() {
       depositAllocations: data.depositAllocations,
       initialBalance: data.initialBalance,
       mockStartDate: data.mockStartDate,
-      mockEndDate: data.mockEndDate
+      mockEndDate: data.mockEndDate,
+      shiftYears: simulationParams.shiftYears
     }
     localStorage.setItem(STORAGE_KEY, JSON.stringify(dataToSave))
-  }, [])
+  }, [fundCodeInput, simulationParams.shiftYears, getSimulationData])
+
+  // 保存数据到 localStorage
+  const saveToLocalStorage = useCallback(() => {
+    saveDataToStorage()
+  }, [saveDataToStorage])
 
   // 设置器方法
   const setFundConfigs = useCallback((configs: FundConfig[]) => {
@@ -266,6 +307,28 @@ function App() {
 
     saveToLocalStorage()
   }, [saveToLocalStorage])
+
+  // 包装的 setFundCodeInput，用于保存到 localStorage
+  const wrappedSetFundCodeInput = useCallback((value: string) => {
+    setFundCodeInput(value)
+    // 延迟保存，确保状态已更新
+    setTimeout(() => {
+      const data = getSimulationData()
+      const dataToSave = {
+        fundCodeInput: value,
+        fundConfigs: data.fundConfigs,
+        monthlyIncomes: data.monthlyIncomes,
+        monthlyExpenses: data.monthlyExpenses,
+        yearExtExpenses: data.yearExtExpenses,
+        depositAllocations: data.depositAllocations,
+        initialBalance: data.initialBalance,
+        mockStartDate: data.mockStartDate,
+        mockEndDate: data.mockEndDate,
+        shiftYears: simulationParams.shiftYears
+      }
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(dataToSave))
+    }, 0)
+  }, [simulationParams.shiftYears, getSimulationData])
 
   // 重置所有缓存
   const resetCache = useCallback(() => {
@@ -370,7 +433,7 @@ function App() {
         <InputSection
           // Fund data
           fundCodeInput={fundCodeInput}
-          setFundCodeInput={setFundCodeInput}
+          setFundCodeInput={wrappedSetFundCodeInput}
           fundLoading={fundLoading}
           fundError={fundError}
           loadFundData={loadFundData}
@@ -392,7 +455,26 @@ function App() {
           setMockDateRange={setMockDateRange}
           // Future view
           shiftYears={simulationParams.shiftYears}
-          setShiftYears={(value) => setSimulationParams(prev => ({ ...prev, shiftYears: value }))}
+          setShiftYears={(value) => {
+            setSimulationParams(prev => ({ ...prev, shiftYears: value }))
+            // 延迟保存，确保状态已更新
+            setTimeout(() => {
+              const data = getSimulationData()
+              const dataToSave = {
+                fundCodeInput: fundCodeInput,
+                fundConfigs: data.fundConfigs,
+                monthlyIncomes: data.monthlyIncomes,
+                monthlyExpenses: data.monthlyExpenses,
+                yearExtExpenses: data.yearExtExpenses,
+                depositAllocations: data.depositAllocations,
+                initialBalance: data.initialBalance,
+                mockStartDate: data.mockStartDate,
+                mockEndDate: data.mockEndDate,
+                shiftYears: value
+              }
+              localStorage.setItem(STORAGE_KEY, JSON.stringify(dataToSave))
+            }, 0)
+          }}
           // Calculation
           onCalculate={triggerCalculation}
         />
