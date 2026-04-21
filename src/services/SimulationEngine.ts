@@ -3,7 +3,8 @@ import type {
   MonthlyIncome,
   DepositAllocation,
   SimulationResult,
-  MonthlyData
+  MonthlyData,
+  LoadedFundData
 } from '../types'
 import { fundDataLoader } from './FundDataLoader'
 
@@ -174,11 +175,26 @@ class SimulationEngine {
   }
 
   /**
+   * 基金净值按月份索引后的最后一个有数据的年月（YYYY-MM）
+   */
+  private getFundLastDataMonth(fundData: LoadedFundData | undefined): string | null {
+    if (!fundData?.data) return null
+    const keys = Object.keys(fundData.data).sort()
+    return keys.length > 0 ? keys[keys.length - 1]! : null
+  }
+
+  /**
    * 获取指定月份的基金净值增长率
    */
   private getFundGrowthRate(fundCode: string, month: string): number {
     const fundData = fundDataLoader.getFundDataByCode(fundCode)
     if (!fundData || !fundData.data) return 1
+
+    // 模拟月份晚于该基金净值数据的最后一个月：净值不再随行情波动（增长率视为 1）
+    const lastDataMonth = this.getFundLastDataMonth(fundData)
+    if (lastDataMonth && month > lastDataMonth) {
+      return 1
+    }
 
     const navData = fundData.data[month]
     if (navData) {
@@ -209,6 +225,11 @@ class SimulationEngine {
   private getFundMonthlyDividend(fundCode: string, month: string): number {
     const fundData = fundDataLoader.getFundDataByCode(fundCode)
     if (!fundData || !fundData.data) return 0
+
+    const lastDataMonth = this.getFundLastDataMonth(fundData)
+    if (lastDataMonth && month > lastDataMonth) {
+      return 0
+    }
 
     const navData = fundData.data[month]
     if (!navData || !navData.allData) return 0
