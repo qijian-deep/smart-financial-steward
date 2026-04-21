@@ -1,5 +1,8 @@
 const STORAGE_KEY = 'smart_financial_steward_fund_codes'
 
+/** 页面初始化时保证已登记并会参与批量加载的默认基金代码（东方财富） */
+export const DEFAULT_FUND_CODES: readonly string[] = ['050025', '163407', '040046']
+
 export class FundStorage {
   /**
    * 获取存储的基金代码数组
@@ -69,5 +72,19 @@ export class FundStorage {
     } catch (error) {
       console.error('清空基金代码失败:', error)
     }
+  }
+
+  /**
+   * 将默认基金代码写入列表（去重），默认三只排在前面，其余已保存代码按原顺序跟在后面。
+   */
+  static ensureDefaultFundCodes(): void {
+    const existing = this.getFundCodes()
+    const merged: string[] = [...DEFAULT_FUND_CODES]
+    for (const code of existing) {
+      if (!merged.includes(code)) {
+        merged.push(code)
+      }
+    }
+    this.saveFundCodes(merged)
   }
 }

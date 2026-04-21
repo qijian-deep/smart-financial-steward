@@ -27,7 +27,7 @@
 | `components/InputSection.tsx` | 左侧表单：基金代码加载、多基金定投配置（含预设存取）、分段月收入、月/年支出、存款、初始现金、模拟日期区间、未来视图平移年数、「计算」触发。 |
 | `components/OutputSection.tsx` | 右侧输出：历史/未来切换、基于 `@antv/g2plot` 的资产曲线、回撤与收益等摘要展示（消费 `SimulationResult`）。 |
 | `services/FundDataLoader.ts` | 通过动态脚本拉取外部行情页、读取 `window` 上的净值数据，经 `fundDataProcessor` 转成 `LoadedFundData`；维护已加载基金列表与 `allFundsLoaded` 订阅；与 `FundStorage` 联动持久化代码列表。 |
-| `services/FundStorage.ts` | `localStorage` 中基金代码列表的增删查（与 loader 使用的 key 一致）。 |
+| `services/FundStorage.ts` | `localStorage` 中基金代码列表的增删查；`DEFAULT_FUND_CODES` 与 `ensureDefaultFundCodes()` 在初始化时合并默认三只基金。 |
 | `services/SimulationEngine.ts` | 核心模拟器：持有基金/收入/支出/存款/日期等状态，`calculate()` 生成 `SimulationResult`（含月度资产、总收益、最大回撤等），`resultChange` 事件通知 UI。 |
 | `types/index.ts` | 全项目共享类型：`FundNavData`、`FundConfig`、`MonthlyIncome`、`DepositAllocation`、`SimulationResult`、`SimulationParams` 等；末尾含部分历史/兼容类型声明。 |
 | `utils/fundDataProcessor.ts` | 净值原始点按年月分组、月初月末净值、增长率与分红等字段的组装，供 loader 与模拟逻辑使用。 |

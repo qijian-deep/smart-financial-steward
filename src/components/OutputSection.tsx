@@ -213,10 +213,6 @@ export function OutputSection({
     }
   }, [chartData, maxDrawdownPoint])
 
-  const hasNegativeBalance = useMemo<boolean>(() => {
-    return simulationResult?.monthlyData?.some(item => item.growthAmount < 0) || false
-  }, [simulationResult])
-
   return (
     <div className="output-section">
       {/* 视图切换 */}

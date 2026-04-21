@@ -204,36 +204,6 @@ class SimulationEngine {
   }
 
   /**
-   * 获取指定月份的基金累计分红
-   */
-  private getFundTotalDividend(fundCode: string, month: string): number {
-    const fundData = fundDataLoader.getFundDataByCode(fundCode)
-    if (!fundData || !fundData.data) return 0
-
-    const navData = fundData.data[month]
-    if (navData) {
-      return navData.totalDividend || 0
-    }
-
-    // 如果当月没有数据，查找最近的有数据的月份
-    const [year, monthNum] = month.split('-').map(Number)
-    for (let i = 1; i <= 12; i++) {
-      let searchMonth = monthNum - i
-      let searchYear = year
-      if (searchMonth <= 0) {
-        searchMonth += 12
-        searchYear--
-      }
-      const searchKey = `${searchYear}-${searchMonth.toString().padStart(2, '0')}`
-      if (fundData.data[searchKey]) {
-        return fundData.data[searchKey].totalDividend || 0
-      }
-    }
-
-    return 0
-  }
-
-  /**
    * 获取指定月份当月是否有分红（返回当月分红金额，不是累计）
    */
   private getFundMonthlyDividend(fundCode: string, month: string): number {
@@ -242,13 +212,6 @@ class SimulationEngine {
 
     const navData = fundData.data[month]
     if (!navData || !navData.allData) return 0
-
-    // 从 allData 中查找是否有分红数据
-    let monthlyDividend = 0
-    for (const dayData of navData.allData) {
-      // 需要从原始数据中获取 unitMoney，但 dayData 中没有这个字段
-      // 所以我们通过比较相邻月份的总分红来计算当月分红
-    }
 
     // 通过比较当前月和上月的累计分红来计算当月分红
     const currentTotalDividend = navData.totalDividend || 0
@@ -273,7 +236,7 @@ class SimulationEngine {
   private calculateFundIncomeForMonth(
     month: string,
     fundAssets: Map<string, number>,
-    fundShares: Map<string, number> = new Map(), // 持有份额
+    _fundShares: Map<string, number> = new Map(), // 预留：按份额建模时可使用
     fundCosts: Map<string, number> = new Map(), // 累计投入成本（用于计算止盈）
     bondFundAssets: Map<string, number> = new Map(), // 债券基金资产（用于存放止盈赎回的资金）
     reinvestStates: Map<string, { remainingMonths: number; monthlyAmount: number }> = new Map() // 重投入状态
@@ -318,7 +281,6 @@ class SimulationEngine {
       const fundCode = config.fundCode
       const baseMonthlyInvestment = config.investmentAmount
       const growthRate = this.getFundGrowthRate(fundCode, month)
-      const totalDividend = this.getFundTotalDividend(fundCode, month)
 
       // 获取当月分红金额（不是累计）
       const monthlyDividend = this.getFundMonthlyDividend(fundCode, month)
@@ -500,6 +462,8 @@ class SimulationEngine {
     let totalFundInvestment = 0
     // 累计分红收益
     let cumulativeDividendIncome = 0
+    // 累计存款利息（每月利息需累加，否则总资产只含「当月」利息）
+    let cumulativeDepositIncome = 0
     // 上月总资产
     let lastMonthTotalAssets = this.initialBalance
     // 止盈重投入状态（按基金code）
@@ -588,6 +552,7 @@ class SimulationEngine {
 
       // 计算存款收益
       const depositIncome = this.calculateDepositIncomeForMonth(month)
+      cumulativeDepositIncome += depositIncome
 
       // 计算基金总市值（普通基金）
       let totalFundValue = 0
@@ -606,7 +571,7 @@ class SimulationEngine {
 
       // 总资产 = 普通基金市值 + 债券基金市值 + 现金 + 存款收益 + 累计分红收益 + 累计止盈赎回金额（不含债券基金部分）
       // 注意：基金总市值已经包含了定投本金和收益，止盈赎回金额类似分红已取出
-      const totalAssets = totalFundValue + totalBondFundValue + cashValue + depositIncome + cumulativeDividendIncome + cumulativeTakeProfitRedemptions
+      const totalAssets = totalFundValue + totalBondFundValue + cashValue + cumulativeDepositIncome + cumulativeDividendIncome + cumulativeTakeProfitRedemptions
 
       // 月末资产
       const endAssets = totalAssets
@@ -633,7 +598,6 @@ class SimulationEngine {
     }
 
     // 计算总收益
-    const firstMonth = monthlyData[0]
     const lastMonth = monthlyData[monthlyData.length - 1]
     const totalInvestment = lastMonth.cumulativeInvestment
     const finalAssets = lastMonth.totalAssets

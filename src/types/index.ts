@@ -155,17 +155,6 @@ export interface SimulationParams {
   shiftYears: number
 }
 
-export interface MaxDrawdown {
-  percent: number
-  amount: number
-  month: string
-}
-
-export interface TotalReturn {
-  amount: number
-  percent: number
-}
-
 export interface MonthNavs {
   startNav: number
   endNav: number

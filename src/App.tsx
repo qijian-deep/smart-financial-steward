@@ -1,6 +1,7 @@
 import './App.css'
 import { useEffect, useState, useCallback, useMemo, useRef } from 'react'
 import { fundDataLoader } from './services/FundDataLoader'
+import { FundStorage } from './services/FundStorage'
 import { simulationEngine } from './services/SimulationEngine'
 import { InputSection } from './components/InputSection'
 import { OutputSection } from './components/OutputSection'
@@ -143,8 +144,9 @@ function App() {
     ;(window as any).fundDataLoader = fundDataLoader
     ;(window as any).simulationEngine = simulationEngine
 
-    // 页面初始化后自动加载 localStorage 中的所有基金
+    // 页面初始化后合并默认基金代码，并批量加载
     const timer = setTimeout(() => {
+      FundStorage.ensureDefaultFundCodes()
       fundDataLoader.loadAllStoredFundsFromLocalStorage()
     }, 500)
 
@@ -244,6 +246,24 @@ function App() {
     simulationEngine.setMockEndDate(endDate)
     setLocalMockStartDate(startDate)
     setLocalMockEndDate(endDate)
+
+    // 模拟区间变更后，同步到各基金定投与月收入段的起止年月
+    const syncedFunds = simulationEngine.getFundConfigs().map((c) => ({
+      ...c,
+      startDate,
+      endDate
+    }))
+    simulationEngine.setFundConfigs(syncedFunds)
+    setLocalFundConfigs(syncedFunds)
+
+    const prevIncomes = simulationEngine.getMonthlyIncomes()
+    const syncedIncomes =
+      prevIncomes.length > 0
+        ? prevIncomes.map((i) => ({ ...i, startDate, endDate }))
+        : [{ income: 10000, startDate, endDate }]
+    simulationEngine.setMonthlyIncomes(syncedIncomes)
+    setLocalMonthlyIncomes(syncedIncomes)
+
     saveToLocalStorage()
   }, [saveToLocalStorage])
 
