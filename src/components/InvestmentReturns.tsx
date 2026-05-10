@@ -12,6 +12,7 @@ function formatPercentage(value: number) {
 
 export default function InvestmentReturns() {
   const [items, setItems] = useState<InvestmentItem[]>(investmentReturnsService.getItems())
+  const [newName, setNewName] = useState<string>('')
   const [newPrincipal, setNewPrincipal] = useState<string>('0')
   const [newCurrentAmount, setNewCurrentAmount] = useState<string>('0')
 
@@ -28,23 +29,31 @@ export default function InvestmentReturns() {
   }
 
   const handleAddItem = () => {
+    const name = newName.trim() || '未命名投资'
     const principal = Number(newPrincipal)
     const currentAmount = Number(newCurrentAmount)
     if (principal <= 0 || currentAmount < 0) return
 
     const nextItem: InvestmentItem = {
       id: `${Date.now()}-${Math.random().toString(16).slice(2)}`,
+      name,
       principal,
       currentAmount: currentAmount || principal
     }
 
     saveItems([...items, nextItem])
+    setNewName('')
     setNewPrincipal('0')
-    setNewCurrentAmount(String(principal))
+    setNewCurrentAmount('0')
   }
 
-  const handleUpdateItem = (id: string, field: 'principal' | 'currentAmount', value: number) => {
+  const handleUpdateItem = (id: string, field: 'name' | 'principal' | 'currentAmount', value: string | number) => {
     const nextItems = items.map((item) => item.id === id ? { ...item, [field]: value } : item)
+    saveItems(nextItems)
+  }
+
+  const handleDeleteItem = (id: string) => {
+    const nextItems = items.filter((item) => item.id !== id)
     saveItems(nextItems)
   }
 
@@ -54,6 +63,16 @@ export default function InvestmentReturns() {
       <section style={{ marginBottom: 24, padding: 20, border: '1px solid #e5e7eb', borderRadius: 12, background: '#ffffff' }}>
         <h2 style={{ marginBottom: 16 }}>投资金额</h2>
         <div style={{ display: 'grid', gap: 16, marginBottom: 16 }}>
+          <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
+            <label style={{ width: 120 }}>投资项名称</label>
+            <input
+              type="text"
+              value={newName}
+              placeholder="请输入投资项名称"
+              onChange={(event) => setNewName(event.target.value)}
+              style={{ flex: 1, padding: 10, border: '1px solid #d1d5db', borderRadius: 8 }}
+            />
+          </div>
           <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
             <label style={{ width: 120 }}>投资本金（元）</label>
             <input
@@ -97,7 +116,19 @@ export default function InvestmentReturns() {
           <div style={{ display: 'grid', gap: 16 }}>
             {items.map((item) => (
               <div key={item.id} style={{ padding: 16, border: '1px solid #e5e7eb', borderRadius: 10, background: '#f9fafb' }}>
-                <div style={{ display: 'grid', gap: 12, gridTemplateColumns: '1fr 1fr', marginBottom: 12 }}>
+                <div style={{ marginBottom: 12 }}>
+                  <h3 style={{ margin: 0, color: '#111827', fontSize: 16 }}>{item.name}</h3>
+                </div>
+                <div style={{ display: 'grid', gap: 12, gridTemplateColumns: '1fr 1fr 1fr', marginBottom: 12 }}>
+                  <div>
+                    <label style={{ display: 'block', marginBottom: 6, color: '#374151' }}>投资项名称</label>
+                    <input
+                      type="text"
+                      value={item.name}
+                      onChange={(event) => handleUpdateItem(item.id, 'name', event.target.value)}
+                      style={{ width: '100%', padding: 10, border: '1px solid #d1d5db', borderRadius: 8 }}
+                    />
+                  </div>
                   <div>
                     <label style={{ display: 'block', marginBottom: 6, color: '#374151' }}>投资本金（元）</label>
                     <input
@@ -121,9 +152,18 @@ export default function InvestmentReturns() {
                     />
                   </div>
                 </div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12 }}>
-                  <div>本金：{formatCurrency(item.principal)}</div>
-                  <div>当前：{formatCurrency(item.currentAmount)}</div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12 }}>
+                  <div>
+                    <div>本金：{formatCurrency(item.principal)}</div>
+                    <div>当前：{formatCurrency(item.currentAmount)}</div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => handleDeleteItem(item.id)}
+                    style={{ padding: '6px 12px', border: '1px solid #dc2626', borderRadius: 6, background: '#fef2f2', color: '#dc2626', cursor: 'pointer', fontSize: 14 }}
+                  >
+                    删除
+                  </button>
                 </div>
               </div>
             ))}

@@ -151,6 +151,7 @@ export interface CurrentAccount {
 
 export interface InvestmentItem {
   id: string
+  name: string
   principal: number
   currentAmount: number
 }

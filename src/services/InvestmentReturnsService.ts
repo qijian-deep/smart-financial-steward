@@ -30,6 +30,7 @@ class InvestmentReturnsService {
       if (Array.isArray(parsed)) {
         return parsed.map((item) => ({
           id: item.id,
+          name: item.name || '未命名投资',
           principal: Number(item.principal) || 0,
           currentAmount: Number(item.currentAmount) || 0
         }))
