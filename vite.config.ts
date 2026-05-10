@@ -4,7 +4,7 @@ import react from '@vitejs/plugin-react'
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [react()],
-  base: '/smart-financial-steward/',
+  base: './',
   server: {
     host: '0.0.0.0',  // 允许外部访问
     port: 5173,       // 默认端口

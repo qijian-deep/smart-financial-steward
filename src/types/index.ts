@@ -149,6 +149,12 @@ export interface CurrentAccount {
   annualRate: number
 }
 
+export interface InvestmentItem {
+  id: string
+  principal: number
+  currentAmount: number
+}
+
 export interface SimulationParams {
   startDate: string
   endDate: string
